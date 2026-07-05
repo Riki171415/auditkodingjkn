@@ -2,7 +2,7 @@ import os
 import json
 import pandas as pd
 from datetime import datetime
-from modules.db_manager import get_recap_desk_review
+from modules.db_manager import get_recap_desk_review, save_generated_report
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'exports', 'rekap')
@@ -122,6 +122,11 @@ def generate_recap_excel():
                 worksheet.column_dimensions[col_letter].width = min(max_length + 2, 50)
                 
     print(f"SELESAI! Laporan akhir berhasil disimpan di: {filepath}")
+    
+    # Save to database
+    rel_path = f"exports/rekap/{filename}"
+    save_generated_report('REKAP_EXCEL', filename, rel_path)
+    
     return filepath
 
 if __name__ == '__main__':

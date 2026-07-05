@@ -707,12 +707,12 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
     ]))
 
     # Render sequentially to allow page splitting for patients with massive diag/proc lists
-    story.append(Paragraph("Daftar Diagnosa", subheader_style))
+    story.append(Paragraph("Daftar Diagnosa", bold_style))
     story.append(Spacer(1, 2))
     story.append(dx_table)
     story.append(Spacer(1, 8))
     
-    story.append(Paragraph("Daftar Prosedur", subheader_style))
+    story.append(Paragraph("Daftar Prosedur", bold_style))
     story.append(Spacer(1, 2))
     story.append(px_table)
     story.append(Spacer(1, 10))

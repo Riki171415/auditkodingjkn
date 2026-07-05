@@ -41,6 +41,17 @@ def init_audit_db():
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     ''')
+    # Table for Generated Reports
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS generated_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        report_type TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        kode_rs TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
     
     conn.commit()
     conn.close()
@@ -215,3 +226,31 @@ def get_recap_onsite():
 
 # Initialize on module import
 init_audit_db()
+
+def save_generated_report(report_type, filename, file_path, kode_rs=None):
+    """Save a generated report record to the database"""
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO generated_reports (report_type, filename, file_path, kode_rs)
+        VALUES (?, ?, ?, ?)
+    ''', (report_type, filename, file_path, kode_rs))
+    conn.commit()
+    conn.close()
+
+def get_generated_reports():
+    """Get all generated reports ordered by newest first"""
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, report_type, filename, file_path, kode_rs, created_at
+        FROM generated_reports
+        ORDER BY created_at DESC
+    ''')
+    rows = cursor.fetchall()
+    conn.close()
+    
+    reports = []
+    for r in rows:
+        reports.append(dict(r))
+    return reports

@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from modules.db_manager import get_audit_db, get_recap_desk_review
+from modules.db_manager import get_audit_db, get_recap_desk_review, save_generated_report
 from modules.export_generator import generate_lha_word
 
 def bulk_generate_word_reports():
@@ -34,6 +34,10 @@ def bulk_generate_word_reports():
         
         print(f"Generating {filename} ({len(cases)} cases)...")
         generate_lha_word(kode_rs, rs_name, cases, output_path)
+        
+        # Save to database
+        rel_path = f"exports/word_reports/{filename}"
+        save_generated_report('LHA_WORD', filename, rel_path, kode_rs)
         
     print(f"SUCCESS! All reports saved to {output_dir}")
 

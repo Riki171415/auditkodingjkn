@@ -8,14 +8,19 @@ export default function Reports() {
   const [osData, setOsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedHospital, setSelectedHospital] = useState('ALL');
+  const [generatedReports, setGeneratedReports] = useState([]);
 
   useEffect(() => {
     Promise.all([
       axios.get('/api/reports/recap-dr'),
-      axios.get('/api/reports/recap-os')
-    ]).then(([resDr, resOs]) => {
+      axios.get('/api/reports/recap-os'),
+      axios.get('/api/reports/generated')
+    ]).then(([resDr, resOs, resGen]) => {
       setDrData(resDr.data.data);
       setOsData(resOs.data.data);
+      if (resGen.data.success) {
+        setGeneratedReports(resGen.data.data);
+      }
       setLoading(false);
     }).catch(err => {
       console.error(err);
@@ -242,21 +247,69 @@ export default function Reports() {
   );
 
   const renderLaporanAkhir = () => (
-    <div className="fade-in" style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:40, textAlign:'center' }}>
-      <FileSpreadsheet size={64} color="var(--kmk-cyan)" style={{ marginBottom: 16 }} />
-      <h2 style={{ color: 'var(--kmk-navy)', margin: '0 0 8px 0' }}>Laporan Akhir Desk Review (Master Excel)</h2>
-      <p className="text-muted" style={{ maxWidth: 600, margin: '0 auto 24px auto' }}>
-        Modul ini akan men-generate dan mengunduh laporan rekapitulasi keseluruhan hasil Desk Review yang terdiri dari Ringkasan Eksekutif per Rumah Sakit dan Master Data Rincian seluruh kasus dalam format Excel (.xlsx).
-      </p>
-      <button 
-        className="btn btn-primary"
-        onClick={() => {
-          window.location.href = '/api/export/laporan-akhir';
-        }}
-        style={{ padding: '12px 24px', fontSize: 16 }}
-      >
-        <Download size={20} /> Unduh Master Excel Laporan Akhir
-      </button>
+    <div className="fade-in" style={{ padding: 24 }}>
+      <div style={{ display:'flex', alignItems:'center', gap: 16, marginBottom: 24 }}>
+        <FileSpreadsheet size={32} color="var(--kmk-cyan)" />
+        <div>
+          <h2 style={{ color: 'var(--kmk-navy)', margin: 0 }}>Laporan Akhir (Rekonsiliasi)</h2>
+          <p className="text-muted" style={{ margin: '4px 0 0 0' }}>Daftar file laporan yang telah di-generate secara massal oleh sistem.</p>
+        </div>
+      </div>
+      
+      <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th style={{width: 50}}>No</th>
+              <th style={{width: 150}}>Tipe Laporan</th>
+              <th>Nama File</th>
+              <th style={{width: 180}}>Waktu Generate</th>
+              <th style={{width: 120, textAlign: 'center'}}>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {generatedReports.length === 0 ? (
+              <tr>
+                <td colSpan={5} style={{textAlign: 'center', padding: 40}}>
+                  <p className="text-muted">Belum ada laporan yang di-generate.</p>
+                  <button 
+                    className="btn btn-primary"
+                    onClick={() => { window.location.href = '/api/export/laporan-akhir'; }}
+                  >
+                    <Download size={16} /> Generate Master Excel Sekarang
+                  </button>
+                </td>
+              </tr>
+            ) : (
+              generatedReports.map((report, idx) => (
+                <tr key={report.id}>
+                  <td>{idx + 1}</td>
+                  <td>
+                    <span style={{
+                      padding: '4px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
+                      backgroundColor: report.report_type === 'REKAP_EXCEL' ? '#dcfce7' : '#e0f2fe',
+                      color: report.report_type === 'REKAP_EXCEL' ? '#166534' : '#075985'
+                    }}>
+                      {report.report_type}
+                    </span>
+                  </td>
+                  <td style={{fontWeight: 500}}>{report.filename}</td>
+                  <td>{new Date(report.created_at).toLocaleString('id-ID')}</td>
+                  <td style={{textAlign: 'center'}}>
+                    <a 
+                      href={`/api/export/download/${report.id}`} 
+                      className="btn btn-outline"
+                      style={{ padding: '6px 12px', fontSize: 12 }}
+                    >
+                      <Download size={14} /> Unduh
+                    </a>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 

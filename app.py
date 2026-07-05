@@ -665,6 +665,39 @@ def export_laporan_akhir():
         print(f"Error generating laporan akhir: {e}")
         return jsonify({'success': False, 'message': str(e)})
 
+@app.route('/api/reports/generated')
+def get_generated_reports_api():
+    try:
+        from modules.db_manager import get_generated_reports
+        reports = get_generated_reports()
+        return jsonify({'success': True, 'data': reports})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/export/download/<int:report_id>')
+def download_generated_report(report_id):
+    try:
+        from modules.db_manager import get_audit_db
+        conn = get_audit_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT file_path, filename FROM generated_reports WHERE id = ?", (report_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return "Report not found", 404
+            
+        rel_path = row['file_path']
+        abs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), rel_path)
+        
+        if not os.path.exists(abs_path):
+            return "File not found on server", 404
+            
+        return send_file(abs_path, as_attachment=True, download_name=row['filename'])
+    except Exception as e:
+        return str(e), 500
+
+
 
 if __name__ == '__main__':
     print("=" * 60)
