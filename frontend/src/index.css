@@ -1,0 +1,229 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Kemenkes BI Enterprise Color Palette */
+  --kmk-cyan: #00A3A6;
+  --kmk-cyan-light: #E0F5F5;
+  --kmk-cyan-dark: #007D80;
+  
+  --kmk-navy: #0B2545;
+  --kmk-navy-light: #133E75;
+  
+  --kmk-green: #27AE60;
+  --kmk-red: #EB5757;
+  --kmk-yellow: #F2C94C;
+  
+  --bg-color: #F4F7F9;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --text-main: #2C3E50;
+  --text-muted: #7F8C8D;
+  --border-color: rgba(11, 37, 69, 0.1);
+  
+  --shadow-sm: 0 2px 8px rgba(11, 37, 69, 0.05);
+  --shadow-md: 0 4px 16px rgba(11, 37, 69, 0.08);
+  --shadow-lg: 0 8px 32px rgba(11, 37, 69, 0.12);
+  
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: var(--transition);
+}
+
+.glass-panel:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Typography */
+h1, h2, h3, h4 {
+  color: var(--kmk-navy);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--kmk-navy) 0%, var(--kmk-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* BI Dashboard Layout */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 260px;
+  background: var(--kmk-navy);
+  color: white;
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-logo {
+  padding: 0 24px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 24px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 24px;
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  transition: var(--transition);
+  gap: 12px;
+}
+
+.nav-item:hover, .nav-item.active {
+  background: rgba(255,255,255,0.1);
+  color: white;
+  border-left: 4px solid var(--kmk-cyan);
+}
+
+.main-content {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+  height: 100vh;
+}
+
+/* UI Components */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition);
+}
+
+.btn-primary {
+  background: var(--kmk-cyan);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--kmk-cyan-dark);
+  box-shadow: 0 4px 12px rgba(0, 163, 166, 0.3);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--kmk-cyan);
+  color: var(--kmk-cyan);
+}
+
+.btn-outline:hover {
+  background: var(--kmk-cyan-light);
+}
+
+/* Data Table Enterprise */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: white;
+}
+
+.bi-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.bi-table th {
+  background: var(--bg-color);
+  color: var(--kmk-navy);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 2px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.bi-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
+}
+
+.bi-table tbody tr:hover {
+  background-color: var(--kmk-cyan-light);
+}
+
+/* Status Badges */
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.badge-success { background: #E8F8F5; color: var(--kmk-green); }
+.badge-warning { background: #FEF9E7; color: #D4AC0D; }
+.badge-danger { background: #FDEDEC; color: var(--kmk-red); }
+.badge-info { background: var(--kmk-cyan-light); color: var(--kmk-cyan-dark); }
+
+/* Loaders & Micro-animations */
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Grid Layouts */
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}

@@ -8,6 +8,10 @@ import sqlite3
 import os
 import sys
 
+# Import Cochran from data_loader
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'modules'))
+from data_loader import cochran_sample_size
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def init_db():
@@ -36,30 +40,49 @@ def init_db():
     # Create CMI indexes
     conn.execute("CREATE INDEX idx_cmi_kode_rs ON cmi_data(kode_rs)")
     
-    # 2. Load Individual Data (in chunks to save RAM)
+    # 2. Load Individual Data
     csv_path = os.path.join(BASE_DIR, '..', 'Individual Data_RS Sampel Audit_INACBG_2025_20260704.csv')
     if not os.path.exists(csv_path):
         print(f"ERROR: Individual CSV file not found at {csv_path}")
         return
         
-    print(f"Loading Individual data from {csv_path} in chunks...")
+    print(f"Loading Individual data from {csv_path} to calculate Cochran sampling...")
+    print("(This step reads the full 1.7M rows into RAM to sample it, reducing the DB size massively)")
     
-    chunk_size = 50000
-    total_rows = 0
+    # Read entire CSV (since we need to sample per hospital)
+    df_ind = pd.read_csv(csv_path, sep=',', dtype=str, on_bad_lines='skip')
+    total_original = len(df_ind)
     
-    # First chunk creates table
-    for i, chunk in enumerate(pd.read_csv(csv_path, sep=';', dtype=str, on_bad_lines='skip', chunksize=chunk_size)):
-        if i == 0:
-            chunk.to_sql('individual_data', conn, index=False, if_exists='replace')
-        else:
-            chunk.to_sql('individual_data', conn, index=False, if_exists='append')
-        total_rows += len(chunk)
-        print(f"  Processed {total_rows} rows...")
+    print(f"Loaded {total_original} rows. Processing Cochran sampling per RS...")
+    
+    import hashlib
+    
+    sampled_dfs = []
+    rs_groups = df_ind.groupby('kode_rs')
+    
+    for kode_rs, group in rs_groups:
+        N = len(group)
+        n = cochran_sample_size(N)
         
-    print(f"Saved {total_rows} Individual records to SQLite.")
+        # Deterministic seed based on kode_rs
+        seed = int(hashlib.md5(str(kode_rs).encode()).hexdigest()[:8], 16) % (2**31)
+        
+        if n >= N:
+            sampled_dfs.append(group)
+        else:
+            sampled_dfs.append(group.sample(n=n, random_state=seed))
+            
+    df_sampled = pd.concat(sampled_dfs, ignore_index=True)
+    total_sampled = len(df_sampled)
+    
+    print(f"Sampling complete: reduced from {total_original} to {total_sampled} rows!")
+    
+    # Save to SQLite
+    print("Saving sampled cases to SQLite...")
+    df_sampled.to_sql('individual_data', conn, index=False, if_exists='replace')
     
     # Create Individual indexes
-    print("Creating indexes (this may take a minute)...")
+    print("Creating indexes...")
     conn.execute("CREATE INDEX idx_ind_kode_rs ON individual_data(kode_rs)")
     conn.execute("CREATE INDEX idx_ind_sep ON individual_data(sep)")
     

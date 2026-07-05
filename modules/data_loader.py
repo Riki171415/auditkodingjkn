@@ -97,32 +97,41 @@ def load_cmi_data():
         
     return _cmi_data, _cmi_hospitals
 
-def load_individual_data():
-    """Load Individual data from SQLite or CSV"""
+def load_individual_data(kode_rs=None):
+    """Load Individual data from SQLite (with parameterized query) or CSV"""
     global _individual_data
-    if _individual_data is not None:
-        return _individual_data
-        
+    
     conn = get_db_connection()
     if conn:
-        print("[DataLoader] Loading Individual data from SQLite (All into RAM for now)...")
-        query = "SELECT * FROM individual_data"
-        _individual_data = pd.read_sql_query(query, conn)
+        if kode_rs:
+            # SQL INJECTION PROTECTION: Parameterized query
+            print(f"[DataLoader] Loading Individual data for RS {kode_rs} from SQLite...")
+            query = "SELECT * FROM individual_data WHERE kode_rs = ?"
+            df = pd.read_sql_query(query, conn, params=(kode_rs,))
+        else:
+            print("[DataLoader] Loading ALL Individual data from SQLite...")
+            query = "SELECT * FROM individual_data"
+            df = pd.read_sql_query(query, conn)
         conn.close()
     else:
-        print("[DataLoader] Loading individual CSV data...")
-        csv_path = os.path.join(BASE_DIR, 'Individual Data_RS Sampel Audit_INACBG_2025_20260704.csv')
-        _individual_data = pd.read_csv(csv_path, sep=';', dtype=str)
-    
-    print(f"[DataLoader] Loaded {len(_individual_data)} rows from Individual data")
-    
-    # Pre-process some columns
-    if 'tarif_inacbg' in _individual_data.columns:
-        _individual_data['tarif_inacbg'] = pd.to_numeric(_individual_data['tarif_inacbg'], errors='coerce')
-    if 'tarif_rs' in _individual_data.columns:
-        _individual_data['tarif_rs'] = pd.to_numeric(_individual_data['tarif_rs'], errors='coerce')
+        if _individual_data is not None:
+            df = _individual_data
+        else:
+            print("[DataLoader] Loading individual CSV data...")
+            csv_path = os.path.join(BASE_DIR, 'Individual Data_RS Sampel Audit_INACBG_2025_20260704.csv')
+            df = pd.read_csv(csv_path, sep=',', dtype=str)
+            _individual_data = df
         
-    return _individual_data
+        if kode_rs:
+            df = df[df['kode_rs'] == str(kode_rs)]
+            
+    # Pre-process numeric
+    if 'tarif_inacbg' in df.columns:
+        df['tarif_inacbg'] = pd.to_numeric(df['tarif_inacbg'], errors='coerce')
+    if 'tarif_rs' in df.columns:
+        df['tarif_rs'] = pd.to_numeric(df['tarif_rs'], errors='coerce')
+        
+    return df
 
 
 def get_hospital_list():

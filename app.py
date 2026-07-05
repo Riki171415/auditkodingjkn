@@ -2,12 +2,16 @@
 Aplikasi Audit Koding INA-CBG / iDRG 2025
 Flask Backend - Main Application
 """
-from flask import Flask, render_template, jsonify, request, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 import os
-import sys
+import math
+import traceback
 import json
+from datetime import datetime
+from flask_cors import CORS
 
 # Add modules to path
+import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
 
 from data_loader import (
@@ -18,47 +22,29 @@ from data_loader import (
 )
 from rule_engine import validate_case, validate_batch_by_rs, get_validation_summary, determine_recommendation
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
+CORS(app)
 app.config['JSON_ENSURE_ASCII'] = False
 
+PER_PAGE = 50
 
-# ============================================================
-# ROUTES - Pages
-# ============================================================
-
-@app.route('/')
-def dashboard():
-    return render_template('dashboard.html')
-
-
-@app.route('/hospitals')
-def hospitals():
-    return render_template('hospitals.html')
-
-
-@app.route('/hospitals/<kode_rs>')
-def hospital_detail(kode_rs):
-    return render_template('hospital_detail.html', kode_rs=kode_rs)
-
-
-@app.route('/desk-review/<kode_rs>')
-def desk_review(kode_rs):
-    return render_template('desk_review.html', kode_rs=kode_rs)
-
-
-@app.route('/kkr-dr01/<sep>')
-def kkr_dr01(sep):
-    return render_template('kkr_dr01.html', sep=sep)
-
-
-@app.route('/kkr-os01/<sep>')
-def kkr_os01(sep):
-    return render_template('kkr_os01.html', sep=sep)
-
-
-@app.route('/laporan')
-def laporan():
-    return render_template('laporan.html')
+# -------------------------------------------------------------
+# REACT APP SERVING
+# -------------------------------------------------------------
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_react(path):
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+        
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    else:
+        # SPA Fallback
+        if os.path.exists(os.path.join(app.static_folder, 'index.html')):
+            return send_from_directory(app.static_folder, 'index.html')
+        else:
+            return "Vite React build not found in frontend/dist. Please run 'npm run build' inside frontend/ directory.", 404
 
 
 # ============================================================
@@ -104,29 +90,98 @@ def api_hospital_detail(kode_rs):
 def api_cases_by_rs(kode_rs):
     try:
         page = int(request.args.get('page', 1))
-        per_page = int(request.args.get('per_page', 50))
-        search = request.args.get('search', '')
-        use_sample = request.args.get('use_sample', 'true').lower() == 'true'
+        per_page = int(request.args.get('per_page', PER_PAGE))
+        search = request.args.get('search', '').lower()
         
-        result = get_cases_by_rs(kode_rs, page=page, per_page=per_page, search=search, use_sample=use_sample)
+        # SQL Injection protected data load via parameterized query
+        df = load_individual_data(kode_rs=kode_rs)
         
-        # Add Cochran info
-        N_total = len(load_individual_data()[load_individual_data()['kode_rs'] == str(kode_rs)])
-        result['cochran_info'] = get_cochran_info(N_total)
+        if df.empty:
+            return jsonify({'success': True, 'data': {'cases': [], 'total': 0}})
+            
+        N = len(df)
+        n = cochran_sample_size(N)
+        percentage = round((n/N)*100, 1) if N > 0 else 0
         
-        return jsonify({'success': True, 'data': result})
+        # Ambil sampel (deterministic)
+        import hashlib
+        seed = int(hashlib.md5(kode_rs.encode()).hexdigest()[:8], 16) % (2**31)
+        if n < N:
+            df = df.sample(n=n, random_state=seed)
+        
+        if search:
+            mask = (
+                df['sep'].str.lower().str.contains(search, na=False) |
+                df['inacbg'].str.lower().str.contains(search, na=False) |
+                df['deskripsi_inacbg'].str.lower().str.contains(search, na=False)
+            )
+            df = df[mask]
+            
+        total = len(df)
+        
+        # Manual pagination
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paged_df = df.iloc[start_idx:end_idx]
+        
+        cases = paged_df.to_dict('records')
+        
+        # Ganti NaN dengan None untuk JSON
+        for c in cases:
+            for k, v in c.items():
+                if isinstance(v, float) and math.isnan(v):
+                    c[k] = None
+                    
+        return jsonify({
+            'success': True,
+            'data': {
+                'cases': cases,
+                'total': total,
+                'page': page,
+                'total_pages': math.ceil(total / per_page),
+                'cochran_info': {
+                    'N': N,
+                    'n_sample': n,
+                    'percentage': percentage,
+                    'formula': "Cochran Formula: n = (Z² × p × q) / e²"
+                }
+            }
+        })
     except Exception as e:
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/case/<sep>')
 def api_case_detail(sep):
+    """Ambil data kasus individual"""
     try:
-        case = get_case_by_sep(sep)
-        if case is None:
-            return jsonify({'success': False, 'error': 'Case not found'}), 404
-        return jsonify({'success': True, 'data': case})
+        import sqlite3
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data.db')
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM individual_data WHERE sep = ?", (sep,))
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                c = dict(row)
+                return jsonify({'success': True, 'data': c})
+            return jsonify({'success': False, 'error': 'Kasus tidak ditemukan'}), 404
+        else:
+            df = load_individual_data()
+            case_df = df[df['sep'] == str(sep)]
+            if case_df.empty:
+                return jsonify({'success': False, 'error': 'Kasus tidak ditemukan'}), 404
+            
+            c = case_df.iloc[0].to_dict()
+            for k, v in c.items():
+                if isinstance(v, float) and math.isnan(v):
+                    c[k] = None
+            return jsonify({'success': True, 'data': c})
     except Exception as e:
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
