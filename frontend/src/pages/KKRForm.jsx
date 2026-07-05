@@ -59,7 +59,7 @@ export default function KKRForm() {
   };
 
   const handleExportPDF = () => {
-    window.location.href = `/api/export/dr01/pdf/${encodeURIComponent(sep)}`;
+    window.print();
   };
   
   const handleExportExcel = () => {
