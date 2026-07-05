@@ -48,7 +48,7 @@ def init_db():
     total_rows = 0
     
     # First chunk creates table
-    for i, chunk in enumerate(pd.read_csv(csv_path, sep=';', dtype=str, chunksize=chunk_size)):
+    for i, chunk in enumerate(pd.read_csv(csv_path, sep=';', dtype=str, on_bad_lines='skip', chunksize=chunk_size)):
         if i == 0:
             chunk.to_sql('individual_data', conn, index=False, if_exists='replace')
         else:
