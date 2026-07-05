@@ -79,19 +79,18 @@ def generate_dummy_data():
             sep = case['sep']
             
             if len(rules) == 0:
-                keputusan = 'Sesuai Aturan'
+                keputusan = 'Sesuai (Terbukti Valid)'
                 rekomendasi = 'Tidak ada temuan. Klaim sesuai.'
                 has_high = False
             else:
                 priorities = [r.get('priority', 'Low') for r in rules]
-                has_high = 'Kritis' in priorities or 'Tinggi' in priorities
+                has_high = 'High' in priorities or 'Medium' in priorities
                 
+                keputusan = 'Tidak Sesuai (Terindikasi Fraud/Error)'
                 if has_high:
-                    keputusan = 'Direkomendasikan On-Site Audit'
-                    rekomendasi = 'Kasus ini memiliki temuan kritis/tinggi dan memerlukan investigasi rekam medis fisik.'
+                    rekomendasi = 'On-Site Audit'
                 else:
-                    keputusan = 'Perlu Monitoring'
-                    rekomendasi = 'Terdapat temuan administrasi/koding ringan, perlu pengawasan pada klaim bulan berikutnya.'
+                    rekomendasi = 'Monitoring / Pembinaan'
                 
             reviewer = random.choice(REVIEWER_NAMES)
             tgl = generate_random_date()
@@ -100,10 +99,11 @@ def generate_dummy_data():
                 'kode_rs': str(kode_rs),
                 'reviewer_name': reviewer,
                 'kesesuaian_dokumen': 'Lengkap',
-                'kesesuaian_medis': 'Ada Ketidaksesuaian' if has_high else 'Kurang Jelas',
+                'kesesuaian_medis': 'Ada Ketidaksesuaian' if len(rules) > 0 else 'Sesuai Medis',
                 'analisis_reviewer': f'Di-generate otomatis oleh sistem berdasarkan {len(rules)} temuan (Auto-Logic).',
-                'keputusan': keputusan,
-                'rekomendasi_lanjut': rekomendasi
+                'keputusan_reviewer': keputusan,
+                'rekomendasi_lanjut': rekomendasi,
+                'kategori_perubahan_tarif': 'Tidak Berubah' if len(rules) == 0 else 'Turun'
             }
             
             save_kkr_dr01(sep, data)

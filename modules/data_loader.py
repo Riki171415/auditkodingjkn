@@ -231,14 +231,14 @@ def get_case_by_sep(sep):
     
     # Process diagnoses
     if case_dict.get('diaglist'):
-        for code in case_dict['diaglist'].split(';'):
+        for code in str(case_dict['diaglist']).split(';'):
             code = code.strip()
             if code:
                 icd_desc_map[code] = icd_dict.get(code) or icd_dict.get(code.replace('.', '')) or '-'
                 
     # Process procedures
     if case_dict.get('proclist'):
-        for code in case_dict['proclist'].split(';'):
+        for code in str(case_dict['proclist']).split(';'):
             code = code.strip()
             if code:
                 icd_desc_map[code] = icd_dict.get(code) or icd_dict.get(code.replace('.', '')) or '-'

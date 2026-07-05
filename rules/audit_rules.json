@@ -374,7 +374,7 @@
       "condition": {
         "type": "proc_without_diag",
         "proc": ["39.95"],
-        "required_diag": ["N17", "N18", "N19"]
+        "required_diag": ["N17", "N18", "N19", "I12.0", "I13.2"]
       },
       "pesan_validasi": "Hemodialisis harus didukung diagnosis yang sesuai sebagai indikasi tindakan.",
       "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kesesuaian prosedur."

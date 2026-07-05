@@ -9,6 +9,8 @@ AUDIT_DB_PATH = os.path.join(BASE_DIR, 'audit.db')
 def get_audit_db():
     """Get connection to audit database"""
     conn = sqlite3.connect(AUDIT_DB_PATH)
+    data_db_path = os.path.join(BASE_DIR, 'data.db')
+    conn.execute(f"ATTACH DATABASE '{data_db_path}' AS datadb")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -146,7 +148,7 @@ def get_recap_desk_review():
             k.sep, k.kode_rs, k.reviewer_name, k.tindakan_reviewer, k.updated_at,
             i.nama_rs, i.kelas, i.regional, i.inacbg, i.tarif_inacbg, i.tarif_rs
         FROM kkr_dr01 k
-        LEFT JOIN individual_data i ON k.sep = i.sep
+        LEFT JOIN datadb.individual_data i ON k.sep = i.sep
     ''')
     rows = cursor.fetchall()
     conn.close()
@@ -183,7 +185,7 @@ def get_recap_onsite():
             k.sep, k.kode_rs, k.reviewer_name, k.form_data_json, k.updated_at,
             i.nama_rs, i.kelas, i.regional, i.inacbg, i.tarif_inacbg, i.tarif_rs
         FROM kkr_os01 k
-        LEFT JOIN individual_data i ON k.sep = i.sep
+        LEFT JOIN datadb.individual_data i ON k.sep = i.sep
     ''')
     rows = cursor.fetchall()
     conn.close()
