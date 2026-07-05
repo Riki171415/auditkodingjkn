@@ -55,6 +55,20 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data.d
 _cmi_data = None
 _cmi_hospitals = None
 _individual_data = None
+_icd_dict = None
+
+def get_icd_dict():
+    """Load external ICD dictionary"""
+    global _icd_dict
+    if _icd_dict is not None:
+        return _icd_dict
+    try:
+        with open(r'D:\SAK-iDRG\dist\data\icd_fallback.json', 'r', encoding='utf-8') as f:
+            _icd_dict = json.load(f)
+    except Exception as e:
+        print(f"[DataLoader] Warning: Could not load icd_fallback.json: {e}")
+        _icd_dict = {}
+    return _icd_dict
 
 def get_db_connection():
     """Return SQLite connection if DB exists, else None"""
@@ -196,7 +210,29 @@ def get_case_by_sep(sep):
     case = df_ind[df_ind['sep'] == sep]
     if len(case) == 0:
         return None
-    return case.iloc[0].to_dict()
+    
+    case_dict = case.iloc[0].to_dict()
+    
+    # Attach ICD descriptions
+    icd_dict = get_icd_dict()
+    icd_desc_map = {}
+    
+    # Process diagnoses
+    if case_dict.get('diaglist'):
+        for code in case_dict['diaglist'].split(';'):
+            code = code.strip()
+            if code:
+                icd_desc_map[code] = icd_dict.get(code) or icd_dict.get(code.replace('.', '')) or '-'
+                
+    # Process procedures
+    if case_dict.get('proclist'):
+        for code in case_dict['proclist'].split(';'):
+            code = code.strip()
+            if code:
+                icd_desc_map[code] = icd_dict.get(code) or icd_dict.get(code.replace('.', '')) or '-'
+                
+    case_dict['icd_desc_map'] = icd_desc_map
+    return case_dict
 
 
 def get_sampled_cases_by_rs(kode_rs):

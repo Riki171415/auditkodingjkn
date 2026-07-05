@@ -25,18 +25,23 @@ export default function KKRForm() {
         setLoading(false);
         axios.get(`/api/kkr-dr01/load/${encodeURIComponent(sep)}`)
           .then(res_load => {
+            const hasRules = res.data.data.triggered_rules && res.data.data.triggered_rules.length > 0;
+            const defaultKeputusan = hasRules ? '' : 'Tidak diperlukan tindak lanjut';
+            
             if (res_load.data.data && res_load.data.data.form_data) {
               const fd = res_load.data.data.form_data;
               setFormData(f => ({
                 ...f,
                 analisis_reviewer: fd.analisis_reviewer || '',
-                keputusan: fd.keputusan || '',
+                keputusan: fd.keputusan || defaultKeputusan,
                 alasan_keputusan: fd.alasan_keputusan || '',
                 catatan_tambahan: fd.catatan_tambahan || '',
                 reviewer_name: fd.reviewer_name || '',
                 tanggal_review: fd.tanggal_review || f.tanggal_review,
                 ketua_tim_name: fd.ketua_tim_name || ''
               }));
+            } else {
+              setFormData(f => ({ ...f, keputusan: defaultKeputusan }));
             }
           });
       })
@@ -223,14 +228,14 @@ export default function KKRForm() {
               <tr key={`diagproc-${i}`}>
                 <td style={{ textAlign: 'center' }}>{i + 1}</td>
                 <td style={{ textAlign: 'center', fontFamily: 'monospace' }}>{diags[i] || ''}</td>
-                <td style={{ fontSize: 9 }}>-</td>
+                <td style={{ fontSize: 9 }}>{diags[i] ? (data.case.icd_desc_map?.[diags[i]] || '-') : '-'}</td>
                 <td style={{ textAlign: 'center', fontFamily: 'monospace' }}>{procs[i] || ''}</td>
-                <td style={{ fontSize: 9 }}>-</td>
+                <td style={{ fontSize: 9 }}>{procs[i] ? (data.case.icd_desc_map?.[procs[i]] || '-') : '-'}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div style={{ fontSize: 9, marginTop: 2 }}>Catatan: Isi sesuai urutan yang tercantum pada data klaim. (Deskripsi individual ICD belum ditarik pada sampel dataset ini)</div>
+        <div style={{ fontSize: 9, marginTop: 2 }}>Catatan: Isi sesuai urutan yang tercantum pada data klaim.</div>
 
         {/* SECTION 4 */}
         <div className="kkr-section-header" style={{ marginTop: 12 }}>4. RINGKASAN TEMUAN (HASIL VALIDASI OTOMATIS BERDASARKAN RULE)</div>
