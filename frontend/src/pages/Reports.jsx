@@ -7,6 +7,7 @@ export default function Reports() {
   const [drData, setDrData] = useState([]);
   const [osData, setOsData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedHospital, setSelectedHospital] = useState('ALL');
 
   useEffect(() => {
     Promise.all([
@@ -23,9 +24,20 @@ export default function Reports() {
   }, []);
 
   const exportCSV = (data, filename, type) => {
-    if (!data || data.length === 0) {
+    let filteredData = data;
+    if (selectedHospital !== 'ALL') {
+      filteredData = data.filter(d => d.kode_rs === selectedHospital);
+    }
+
+    if (!filteredData || filteredData.length === 0) {
       alert('Tidak ada data untuk diekspor');
       return;
+    }
+
+    let actualFilename = filename;
+    if (selectedHospital !== 'ALL') {
+      const rsName = filteredData[0].nama_rs.replace(/[^a-zA-Z0-9]/g, '_');
+      actualFilename = `${filename}_RS_${rsName}`;
     }
 
     let csvContent = "data:text/csv;charset=utf-8,";
@@ -36,36 +48,30 @@ export default function Reports() {
       headers = ['Nomor SEP', 'Kode RS', 'Nama RS', 'Kelas', 'Reviewer', 'Tanggal KKR', 'Kode INA-CBG', 'Tarif INA-CBG', 'Tarif RS', 'Selisih Tarif', 'Keputusan', 'Rekomendasi Lanjut'];
       csvContent += headers.join(";") + "\r\n";
       
-      data.forEach(row => {
+      if (type === 'dr') {
         const selisih = (row.tarif_inacbg || 0) - (row.tarif_rs || 0);
-        const csvRow = [
+        csvRow = [
           row.sep, row.kode_rs, `"${row.nama_rs}"`, row.kelas || '-', 
           `"${row.reviewer_name}"`, row.tanggal, row.inacbg, 
           row.tarif_inacbg, row.tarif_rs, selisih, 
           `"${row.keputusan}"`, `"${row.rekomendasi_lanjut}"`
         ];
-        csvContent += csvRow.join(";") + "\r\n";
-      });
-    } else if (type === 'os') {
-      headers = ['Nomor SEP', 'Kode RS', 'Nama RS', 'Reviewer', 'Tanggal KKR', 'Kode INA-CBG', 'Tarif INA-CBG', 'Tarif RS', 'Selisih Tarif', 'Kesimpulan'];
-      csvContent += headers.join(";") + "\r\n";
-      
-      data.forEach(row => {
+      } else if (type === 'os') {
         const selisih = (row.tarif_inacbg || 0) - (row.tarif_rs || 0);
-        const csvRow = [
+        csvRow = [
           row.sep, row.kode_rs, `"${row.nama_rs}"`, 
           `"${row.reviewer_name}"`, row.tanggal, row.inacbg, 
           row.tarif_inacbg, row.tarif_rs, selisih, 
           `"${row.kesimpulan}"`
         ];
-        csvContent += csvRow.join(";") + "\r\n";
-      });
-    }
+      }
+      csvContent += csvRow.join(";") + "\r\n";
+    });
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${filename}.csv`);
+    link.setAttribute("download", `${actualFilename}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -73,16 +79,46 @@ export default function Reports() {
 
   if (loading) return <div className="fade-in"><div className="spinner" style={{margin:'100px auto'}}></div></div>;
 
+  // Extract unique hospitals for dropdown
+  const getUniqueHospitals = (data) => {
+    const map = new Map();
+    data.forEach(item => {
+      if (!map.has(item.kode_rs)) {
+        map.set(item.kode_rs, item.nama_rs);
+      }
+    });
+    return Array.from(map.entries()).map(([kode_rs, nama_rs]) => ({ kode_rs, nama_rs }));
+  };
+
+  const drHospitals = getUniqueHospitals(drData);
+  const osHospitals = getUniqueHospitals(osData);
+
+  const displayedDrData = selectedHospital === 'ALL' ? drData : drData.filter(d => d.kode_rs === selectedHospital);
+  const displayedOsData = selectedHospital === 'ALL' ? osData : osData.filter(d => d.kode_rs === selectedHospital);
+
   const renderDeskReview = () => (
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <h3 style={{ margin: 0, color: 'var(--kmk-navy)' }}>Rekapitulasi KKR Desk Review (KKR-DR01)</h3>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>Total KKR Selesai: {drData.length}</p>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>Total KKR Ditampilkan: {displayedDrData.length}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => exportCSV(drData, 'Rekap_DeskReview_KKR-DR01', 'dr')}>
-          <Download size={16} /> Export CSV (Excel)
-        </button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <select 
+            className="form-control" 
+            style={{ width: 250, padding: '6px 12px', fontSize: 13 }}
+            value={selectedHospital}
+            onChange={(e) => setSelectedHospital(e.target.value)}
+          >
+            <option value="ALL">Semua Rumah Sakit</option>
+            {drHospitals.map(rs => (
+              <option key={rs.kode_rs} value={rs.kode_rs}>{rs.nama_rs} ({rs.kode_rs})</option>
+            ))}
+          </select>
+          <button className="btn btn-primary" onClick={() => exportCSV(drData, 'Rekap_DeskReview_KKR-DR01', 'dr')}>
+            <Download size={16} /> Export CSV (Excel)
+          </button>
+        </div>
       </div>
       
       <div className="glass-panel" style={{ overflowX: 'auto', padding: 16 }}>
@@ -98,10 +134,10 @@ export default function Reports() {
             </tr>
           </thead>
           <tbody>
-            {drData.length === 0 ? (
+            {displayedDrData.length === 0 ? (
               <tr><td colSpan="6" style={{textAlign:'center', padding:24}} className="text-muted">Belum ada KKR Desk Review yang diselesaikan.</td></tr>
             ) : (
-              drData.map((row, i) => (
+              displayedDrData.map((row, i) => (
                 <tr key={row.sep}>
                   <td>{i+1}</td>
                   <td style={{fontFamily:'monospace', fontSize:12, fontWeight:600}}>{row.sep}</td>
@@ -130,11 +166,24 @@ export default function Reports() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <h3 style={{ margin: 0, color: 'var(--kmk-navy)' }}>Rekapitulasi KKR On-Site Audit (KKR-OS01)</h3>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>Total KKR Selesai: {osData.length}</p>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>Total KKR Ditampilkan: {displayedOsData.length}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => exportCSV(osData, 'Rekap_OnSiteAudit_KKR-OS01', 'os')}>
-          <Download size={16} /> Export CSV (Excel)
-        </button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <select 
+            className="form-control" 
+            style={{ width: 250, padding: '6px 12px', fontSize: 13 }}
+            value={selectedHospital}
+            onChange={(e) => setSelectedHospital(e.target.value)}
+          >
+            <option value="ALL">Semua Rumah Sakit</option>
+            {osHospitals.map(rs => (
+              <option key={rs.kode_rs} value={rs.kode_rs}>{rs.nama_rs} ({rs.kode_rs})</option>
+            ))}
+          </select>
+          <button className="btn btn-primary" onClick={() => exportCSV(osData, 'Rekap_OnSiteAudit_KKR-OS01', 'os')}>
+            <Download size={16} /> Export CSV (Excel)
+          </button>
+        </div>
       </div>
       
       <div className="glass-panel" style={{ overflowX: 'auto', padding: 16 }}>
@@ -150,10 +199,10 @@ export default function Reports() {
             </tr>
           </thead>
           <tbody>
-            {osData.length === 0 ? (
+            {displayedOsData.length === 0 ? (
               <tr><td colSpan="6" style={{textAlign:'center', padding:24}} className="text-muted">Belum ada KKR On-Site Audit yang diselesaikan.</td></tr>
             ) : (
-              osData.map((row, i) => (
+              displayedOsData.map((row, i) => (
                 <tr key={row.sep}>
                   <td>{i+1}</td>
                   <td style={{fontFamily:'monospace', fontSize:12, fontWeight:600}}>{row.sep}</td>
@@ -207,21 +256,21 @@ export default function Reports() {
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, borderBottom: '1px solid var(--border-color)', paddingBottom: 16 }}>
         <button 
           className={`btn ${activeTab === 'desk-review' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setActiveTab('desk-review')}
+          onClick={() => { setActiveTab('desk-review'); setSelectedHospital('ALL'); }}
           style={{ padding: '8px 24px', border: activeTab !== 'desk-review' ? 'none' : undefined, background: activeTab !== 'desk-review' ? 'transparent' : undefined }}
         >
           <CheckCircle size={16} /> 1. Laporan Desk Review
         </button>
         <button 
           className={`btn ${activeTab === 'onsite' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setActiveTab('onsite')}
+          onClick={() => { setActiveTab('onsite'); setSelectedHospital('ALL'); }}
           style={{ padding: '8px 24px', border: activeTab !== 'onsite' ? 'none' : undefined, background: activeTab !== 'onsite' ? 'transparent' : undefined }}
         >
           <AlertTriangle size={16} /> 2. Laporan On-Site Audit
         </button>
         <button 
           className={`btn ${activeTab === 'akhir' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setActiveTab('akhir')}
+          onClick={() => { setActiveTab('akhir'); setSelectedHospital('ALL'); }}
           style={{ padding: '8px 24px', border: activeTab !== 'akhir' ? 'none' : undefined, background: activeTab !== 'akhir' ? 'transparent' : undefined }}
         >
           <FileSpreadsheet size={16} /> 3. Laporan Akhir (Rekonsiliasi)

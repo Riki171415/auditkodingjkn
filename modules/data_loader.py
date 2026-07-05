@@ -9,6 +9,7 @@ import json
 import math
 import hashlib
 import sqlite3
+from modules.rule_engine import validate_case
 
 
 # ============================================================
@@ -295,7 +296,7 @@ def get_cases_by_rs(kode_rs, page=1, per_page=50, search='', use_sample=True):
     cases = rs_data.copy()
     
     # Apply rules
-    cases['rules'] = cases.apply(check_all_rules, axis=1)
+    cases['rules'] = cases.apply(lambda row: validate_case(row.to_dict()), axis=1)
     cases['needs_audit'] = cases['rules'].apply(lambda x: len(x) > 0)
     
     cases = cases.fillna('')
