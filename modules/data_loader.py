@@ -151,6 +151,12 @@ def get_hospital_list():
     )
     
     merged = merged.fillna({'Audit_2SD': 'N/A', 'Audit_IQR': 'N/A'})
+    
+    # Sort by CMI descending
+    merged['cmi_num'] = pd.to_numeric(merged['cmi'], errors='coerce').fillna(0)
+    merged = merged.sort_values(by='cmi_num', ascending=False)
+    merged = merged.drop(columns=['cmi_num'])
+    
     return merged.to_dict('records')
 
 
@@ -239,12 +245,23 @@ def get_cases_by_rs(kode_rs, page=1, per_page=50, search='', use_sample=True):
         )
         rs_data = rs_data[mask]
     
-    total = len(rs_data)
+    cases = rs_data.copy()
+    
+    # Apply rules
+    cases['rules'] = cases.apply(check_all_rules, axis=1)
+    cases['needs_audit'] = cases['rules'].apply(lambda x: len(x) > 0)
+    
+    cases = cases.fillna('')
+    
+    # Sort by needs_audit descending (True first)
+    cases = cases.sort_values(by=['needs_audit'], ascending=[False])
+    
+    # Pagination
+    total = len(cases)
     start = (page - 1) * per_page
     end = start + per_page
     
-    cases = rs_data.iloc[start:end].copy()
-    cases = cases.fillna('')
+    cases = cases.iloc[start:end].copy()
     
     return {
         'total': total,

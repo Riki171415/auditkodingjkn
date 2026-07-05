@@ -140,6 +140,7 @@ export default function DeskReview() {
               <th>No</th>
               <th>Nomor SEP</th>
               <th>INA-CBG</th>
+              <th>iDRG (Kemenkes)</th>
               <th>Diagnosa</th>
               <th>Tarif RS</th>
               <th>Tarif INA-CBG</th>
@@ -149,18 +150,24 @@ export default function DeskReview() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px 0' }}>Memuat data...</td></tr>
+              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '40px 0' }}>Memuat data...</td></tr>
             ) : data.cases.length === 0 ? (
-              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px 0' }}>Data tidak ditemukan</td></tr>
+              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '40px 0' }}>Data tidak ditemukan</td></tr>
             ) : (
               data.cases.map((c, i) => (
                 <tr key={c.sep}>
                   <td style={{ color: 'var(--text-muted)' }}>{(page-1)*50 + i + 1}</td>
                   <td style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--kmk-cyan-dark)' }}>{c.sep}</td>
                   <td>
-                    <div>{c.inacbg}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontWeight: 500 }}>{c.inacbg}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.deskripsi_inacbg}
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: 500, color: 'var(--kmk-navy)' }}>{c.idrg_code || '-'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.deskripsi_idrg || '-'}
                     </div>
                   </td>
                   <td><span style={{ background: '#eee', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontFamily: 'monospace' }}>{c.diaglist?.split(';')[0]}</span></td>
