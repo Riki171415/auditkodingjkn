@@ -54,7 +54,8 @@ def serve_react(path):
 @app.route('/api/dashboard/stats')
 def api_dashboard_stats():
     try:
-        stats = get_dashboard_stats()
+        sample_only = request.args.get('sample_only', 'false').lower() == 'true'
+        stats = get_dashboard_stats(sample_only=sample_only)
         return jsonify({'success': True, 'data': stats})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -90,7 +91,8 @@ def api_load_os01(sep):
 def api_dashboard_scatter():
     try:
         from modules.data_loader import get_scatter_data
-        data = get_scatter_data()
+        sample_only = request.args.get('sample_only', 'false').lower() == 'true'
+        data = get_scatter_data(sample_only=sample_only)
         return jsonify({'success': True, 'data': data})
     except Exception as e:
         import traceback
@@ -141,7 +143,9 @@ def api_onsite_list():
 @app.route('/api/hospitals')
 def api_hospitals():
     try:
-        hospitals = get_hospital_list()
+        # For the target hospitals list, default to only sample unless told otherwise
+        sample_only = request.args.get('sample_only', 'true').lower() == 'true'
+        hospitals = get_hospital_list(sample_only=sample_only)
         return jsonify({'success': True, 'data': hospitals})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

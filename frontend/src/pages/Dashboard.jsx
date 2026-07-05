@@ -9,11 +9,13 @@ export default function Dashboard() {
   const [scatter, setScatter] = useState([]);
   const [scatterMeta, setScatterMeta] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sampleOnly, setSampleOnly] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([
-      axios.get('/api/dashboard/stats'),
-      axios.get('/api/dashboard/scatter')
+      axios.get(`/api/dashboard/stats?sample_only=${sampleOnly}`),
+      axios.get(`/api/dashboard/scatter?sample_only=${sampleOnly}`)
     ]).then(([resStats, resScatter]) => {
       setStats(resStats.data.data);
       if (resScatter.data.data.points) {
@@ -31,7 +33,7 @@ export default function Dashboard() {
       console.error(err);
       setLoading(false);
     });
-  }, []);
+  }, [sampleOnly]);
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -60,9 +62,21 @@ export default function Dashboard() {
           <h1 className="text-gradient" style={{ fontSize: '24px', margin: 0 }}>Tahap 1: Analisis Casemix (Dashboard)</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>Gambaran umum populasi klaim dan identifikasi Rumah Sakit anomali</p>
         </div>
-        <Link to="/hospitals" className="btn btn-primary">
-          Lanjut Tahap 2: Penetapan Sasaran <ArrowRight size={16} />
-        </Link>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.05)', padding: '6px 12px', borderRadius: 20 }}>
+            <span style={{ fontSize: 13, marginRight: 8, fontWeight: !sampleOnly ? 600 : 400, color: !sampleOnly ? 'var(--kmk-navy)' : 'var(--text-muted)' }}>Nasional</span>
+            <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', position: 'relative' }}>
+              <input type="checkbox" style={{ opacity: 0, position: 'absolute' }} checked={sampleOnly} onChange={e => setSampleOnly(e.target.checked)} />
+              <div style={{ width: 40, height: 22, background: sampleOnly ? 'var(--kmk-cyan)' : '#ccc', borderRadius: 20, position: 'relative', transition: '0.3s' }}>
+                <div style={{ width: 18, height: 18, background: 'white', borderRadius: '50%', position: 'absolute', top: 2, left: sampleOnly ? 20 : 2, transition: '0.3s' }} />
+              </div>
+            </label>
+            <span style={{ fontSize: 13, marginLeft: 8, fontWeight: sampleOnly ? 600 : 400, color: sampleOnly ? 'var(--kmk-cyan)' : 'var(--text-muted)' }}>40 RS Sampel</span>
+          </div>
+          <Link to="/hospitals" className="btn btn-primary">
+            Lanjut Tahap 2: Penetapan Sasaran <ArrowRight size={16} />
+          </Link>
+        </div>
       </div>
       
       <div className="grid-cards">

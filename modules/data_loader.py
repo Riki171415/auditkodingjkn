@@ -149,8 +149,8 @@ def load_individual_data(kode_rs=None):
     return df
 
 
-def get_hospital_list():
-    """Get unique hospitals from CMI data"""
+def get_hospital_list(sample_only=False):
+    """Get unique hospitals from CMI data, optionally filtered to 40 RS"""
     df_cmi, _ = load_cmi_data()
     df_ind = load_individual_data()
     
@@ -171,7 +171,18 @@ def get_hospital_list():
     merged = merged.sort_values(by='cmi_num', ascending=False)
     merged = merged.drop(columns=['cmi_num'])
     
+    if sample_only:
+        # Filter 20 P and 20 S
+        p_hospitals = merged[merged['pemilik'].str.upper() == 'P'].head(20)
+        s_hospitals = merged[merged['pemilik'].str.upper() == 'S'].head(20)
+        merged = pd.concat([p_hospitals, s_hospitals])
+    
     return merged.to_dict('records')
+
+def get_sample_hospital_codes():
+    """Helper to quickly get the 40 RS codes"""
+    hospitals = get_hospital_list(sample_only=True)
+    return [h['kode_rs'] for h in hospitals]
 
 
 def get_hospital_detail(kode_rs):
@@ -308,7 +319,7 @@ def get_cases_by_rs(kode_rs, page=1, per_page=50, search='', use_sample=True):
     }
 
 
-def get_dashboard_stats():
+def get_dashboard_stats(sample_only=False):
     """Get overall dashboard statistics via SQL (Memory optimized)"""
     conn = get_db_connection()
     df_cmi, df_tabel = load_cmi_data()
@@ -319,14 +330,27 @@ def get_dashboard_stats():
     cursor = conn.cursor()
     
     # Basic counts and sums
-    cursor.execute('''
+    
+    where_clause = ""
+    if sample_only:
+        codes = get_sample_hospital_codes()
+        placeholders = ','.join(['?'] * len(codes))
+        where_clause = f" WHERE kode_rs IN ({placeholders})"
+    
+    query = f'''
         SELECT 
             COUNT(DISTINCT kode_rs) as total_rs,
             COUNT(sep) as total_kasus,
             SUM(CAST(tarif_inacbg AS FLOAT)) as total_tarif_inacbg,
             SUM(CAST(tarif_rs AS FLOAT)) as total_tarif_rs
         FROM individual_data
-    ''')
+        {where_clause}
+    '''
+    
+    if sample_only:
+        cursor.execute(query, codes)
+    else:
+        cursor.execute(query)
     basic_stats = cursor.fetchone()
     total_rs = basic_stats['total_rs']
     total_kasus = basic_stats['total_kasus']
@@ -338,17 +362,17 @@ def get_dashboard_stats():
     audit_iqr = int(df_cmi[df_cmi['Audit_IQR'] == 'Audit'].shape[0])
     
     # Regional distribution
-    cursor.execute('''
+    cursor.execute(f'''
         SELECT regional, COUNT(sep) as kasus, COUNT(DISTINCT kode_rs) as rs
-        FROM individual_data GROUP BY regional
-    ''')
+        FROM individual_data {where_clause} GROUP BY regional
+    ''', codes if sample_only else ())
     regional_dist = [dict(row) for row in cursor.fetchall()]
     
     # Class distribution
-    cursor.execute('''
+    cursor.execute(f'''
         SELECT kelas, COUNT(sep) as kasus, COUNT(DISTINCT kode_rs) as rs
-        FROM individual_data GROUP BY kelas
-    ''')
+        FROM individual_data {where_clause} GROUP BY kelas
+    ''', codes if sample_only else ())
     kelas_dist = [dict(row) for row in cursor.fetchall()]
     
     # Top RS by tarif discrepancy
@@ -379,10 +403,14 @@ def get_dashboard_stats():
         'tabel_cmi': {}
     }
 
-def get_scatter_data():
-    """Get full population Casemix Scatter Plot data directly from df_cmi"""
+def get_scatter_data(sample_only=False):
+    """Get CMI scatter plot data with limit to avoid large payloads"""
     df_cmi, _ = load_cmi_data()
     
+    if sample_only:
+        codes = get_sample_hospital_codes()
+        df_cmi = df_cmi[df_cmi['kode_rs'].isin(codes)]
+        
     if df_cmi is None or df_cmi.empty:
         return {'points': [], 'boundaries': {}, 'insights': {}}
         
