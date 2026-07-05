@@ -46,8 +46,13 @@ export default function Reports() {
     let headers = [];
     if (type === 'dr') {
       headers = ['Nomor SEP', 'Kode RS', 'Nama RS', 'Kelas', 'Reviewer', 'Tanggal KKR', 'Kode INA-CBG', 'Tarif INA-CBG', 'Tarif RS', 'Selisih Tarif', 'Keputusan', 'Rekomendasi Lanjut'];
-      csvContent += headers.join(";") + "\r\n";
-      
+    } else if (type === 'os') {
+      headers = ['Nomor SEP', 'Kode RS', 'Nama RS', 'Reviewer', 'Tanggal KKR', 'Kode INA-CBG', 'Tarif INA-CBG', 'Tarif RS', 'Selisih Tarif', 'Kesimpulan'];
+    }
+    csvContent += headers.join(";") + "\r\n";
+    
+    filteredData.forEach(row => {
+      let csvRow = [];
       if (type === 'dr') {
         const selisih = (row.tarif_inacbg || 0) - (row.tarif_rs || 0);
         csvRow = [
