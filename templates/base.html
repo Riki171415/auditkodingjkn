@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Audit Koding 2025{% endblock %} | Pusat Pembiayaan Kesehatan</title>
+  <meta name="description" content="Aplikasi Audit Koding Diagnosis, Tindakan, dan/atau Prosedur Medis pada Masa Transisi iDRG">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/kkr.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🏥</div>
+        <div class="logo-text">
+          <h1>Audit Koding</h1>
+          <span>Pusat Pembiayaan Kesehatan</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Utama</div>
+        <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+          <span class="nav-icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="/hospitals" class="nav-item {% if request.path.startswith('/hospitals') %}active{% endif %}">
+          <span class="nav-icon">🏨</span>
+          <span>Rumah Sakit Sampel</span>
+        </a>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Audit</div>
+        <a href="/laporan" class="nav-item {% if request.path == '/laporan' %}active{% endif %}">
+          <span class="nav-icon">📋</span>
+          <span>Rekapitulasi Audit</span>
+        </a>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Pedoman</div>
+        <a href="#" class="nav-item" onclick="showInfo()">
+          <span class="nav-icon">📖</span>
+          <span>Aturan Validasi</span>
+        </a>
+        <a href="#" class="nav-item" onclick="showInfo()">
+          <span class="nav-icon">ℹ️</span>
+          <span>Tentang Aplikasi</span>
+        </a>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-info">
+          <strong>AUDIT KODING 2025</strong><br>
+          Masa Transisi INA-CBG → iDRG<br>
+          Ver. 1.0 | Kemenkes RI
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <header class="top-header">
+        <nav class="breadcrumb">
+          {% block breadcrumb %}
+          <a href="/">🏠 Home</a>
+          {% endblock %}
+        </nav>
+        <div class="header-actions">
+          <button class="btn-icon" title="Refresh" onclick="location.reload()">🔄</button>
+          <button class="btn-icon" title="Print" onclick="window.print()">🖨️</button>
+        </div>
+      </header>
+
+      <main class="page-content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Info Modal -->
+  <div id="infoModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:9999; display:none; align-items:center; justify-content:center;">
+    <div style="background:var(--bg-secondary); border:1px solid var(--border-medium); border-radius:var(--radius-lg); padding:28px; max-width:560px; width:90%; position:relative;">
+      <h2 style="font-size:18px; margin-bottom:12px;">Tentang Aplikasi Audit Koding</h2>
+      <p style="color:var(--text-secondary); font-size:13px; line-height:1.7; margin-bottom:16px;">
+        Aplikasi ini mengimplementasikan <strong>Pedoman Audit Koding Diagnosis, Tindakan, dan/atau Prosedur Medis pada Masa Transisi iDRG</strong> berdasarkan Keputusan Sekretaris Jenderal Kementerian Kesehatan RI.
+      </p>
+      <p style="color:var(--text-secondary); font-size:13px; line-height:1.7;">
+        Fitur utama: Rule-Based Coding Validation (44+ aturan), auto-populate KKR-DR01 & KKR-OS01, analisis CMI, dan rekapitulasi audit.
+      </p>
+      <button onclick="document.getElementById('infoModal').style.display='none'" 
+              style="margin-top:20px; padding:8px 20px; background:var(--accent-blue); color:white; border:none; border-radius:var(--radius-md); cursor:pointer; font-size:13px;">
+        Tutup
+      </button>
+    </div>
+  </div>
+
+  <script src="/static/js/main.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Audit Koding 2025{% endblock %}
+
+{% block breadcrumb %}
+<span class="current">📊 Dashboard</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="page-title">Dashboard Audit Koding 2025</h1>
+      <p class="page-subtitle">Monitoring & Analisis Audit Coding Masa Transisi INA-CBG → iDRG</p>
+    </div>
+    <div class="flex gap-2">
+      <span class="badge badge-blue">📅 Periode 2025</span>
+      <span id="headerStatusBadge" class="badge badge-gray">Memuat...</span>
+    </div>
+  </div>
+</div>
+
+<!-- Stat Cards -->
+<div class="stat-grid" id="statGrid">
+  <div class="stat-card blue">
+    <div class="stat-icon">🏨</div>
+    <div class="stat-value" id="statRS">—</div>
+    <div class="stat-label">RS Sampel Audit</div>
+  </div>
+  <div class="stat-card cyan">
+    <div class="stat-icon">📁</div>
+    <div class="stat-value" id="statKasus">—</div>
+    <div class="stat-label">Total Kasus Diaudit</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">💰</div>
+    <div class="stat-value" id="statTarifINA">—</div>
+    <div class="stat-label">Total Tarif INA-CBG</div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-icon">🏦</div>
+    <div class="stat-value" id="statTarifRS">—</div>
+    <div class="stat-label">Total Tarif RS</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">⚠️</div>
+    <div class="stat-value" id="statAudit2SD">—</div>
+    <div class="stat-label">RS Perlu Audit (2SD)</div>
+  </div>
+  <div class="stat-card emerald">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value" id="statAuditIQR">—</div>
+    <div class="stat-label">RS Perlu Audit (IQR)</div>
+  </div>
+</div>
+
+<!-- CMI Threshold Info -->
+<div id="cmiThresholdCard" class="card mb-4" style="display:none;">
+  <div class="card-header">
+    <div>
+      <div class="card-title">📈 Ambang Batas CMI Nasional 2025</div>
+      <div class="card-subtitle">Berdasarkan analisis statistik seluruh RS Indonesia</div>
+    </div>
+  </div>
+  <div class="grid-2 gap-4">
+    <div style="background:rgba(59,130,246,0.06); border:1px solid rgba(59,130,246,0.15); border-radius:var(--radius-md); padding:16px;">
+      <div class="text-center mb-3">
+        <span class="badge badge-blue">Metode 2 Standard Deviasi (2SD)</span>
+      </div>
+      <div class="grid-2 gap-2 text-center" style="display:grid; grid-template-columns:1fr 1fr;">
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Mean CMI</div>
+          <div id="cmi2sdMean" class="text-blue font-bold" style="font-size:16px;">—</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Std Dev</div>
+          <div id="cmi2sdStd" class="text-secondary font-bold" style="font-size:16px;">—</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Batas Bawah</div>
+          <div id="cmi2sdLow" class="text-emerald font-bold" style="font-size:16px; color:var(--accent-emerald);">—</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Batas Atas</div>
+          <div id="cmi2sdHigh" class="text-danger font-bold" style="font-size:16px;">—</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.15); border-radius:var(--radius-md); padding:16px;">
+      <div class="text-center mb-3">
+        <span class="badge badge-onsite">Metode IQR (Interquartile Range)</span>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:center;">
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Q1</div>
+          <div id="cmiIqrQ1" class="font-bold" style="font-size:16px; color:var(--accent-purple);">—</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Q3</div>
+          <div id="cmiIqrQ3" class="font-bold" style="font-size:16px; color:var(--accent-purple);">—</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Batas Bawah IQR</div>
+          <div id="cmiIqrLow" class="font-bold" style="font-size:16px; color:var(--accent-emerald);">—</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Batas Atas IQR</div>
+          <div id="cmiIqrHigh" class="text-danger font-bold" style="font-size:16px;">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid-2 gap-4 mb-4">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">📍 Distribusi RS per Regional</div>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="chartRegional"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🏫 Distribusi Kasus per Kelas RS</div>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="chartKelas"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Top RS Selisih Tarif -->
+<div class="card mb-4">
+  <div class="card-header">
+    <div>
+      <div class="card-title">🔴 Top 10 RS dengan Selisih Tarif Tertinggi (RS > INA-CBG)</div>
+      <div class="card-subtitle">Indikasi potensi financial impact audit</div>
+    </div>
+    <a href="/hospitals" class="btn btn-outline btn-sm">Lihat Semua →</a>
+  </div>
+  <div class="table-container">
+    <table id="topRsTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nama Rumah Sakit</th>
+          <th>Jumlah Kasus</th>
+          <th>Selisih Tarif (Rp)</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="topRsBody">
+        <tr><td colspan="5" class="text-center text-muted">Memuat data...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Quick Info -->
+<div class="grid-3 gap-4">
+  <div class="card">
+    <div class="card-title mb-2">📖 Pedoman Audit</div>
+    <p class="text-secondary text-sm" style="line-height:1.7;">
+      Berdasarkan <strong>Kepmenkes Sekjen</strong> tentang Pedoman Audit Koding pada Masa Transisi iDRG.
+      Menggunakan pendekatan <em>Risk-Based Audit</em>.
+    </p>
+  </div>
+  <div class="card">
+    <div class="card-title mb-2">🔍 Rule-Based Validation</div>
+    <p class="text-secondary text-sm" style="line-height:1.7;">
+      44+ aturan validasi coding otomatis (ICD-10 & ICD-9-CM) untuk Desk Review.
+      Output: KKR-DR01 per kasus.
+    </p>
+  </div>
+  <div class="card">
+    <div class="card-title mb-2">📋 Output Audit</div>
+    <p class="text-secondary text-sm" style="line-height:1.7;">
+      KKR-DR01 (Desk Review) dan KKR-OS01 (On-Site Audit) dapat diisi, disimpan, dan dicetak.
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadDashboard() {
+  try {
+    const res = await fetch('/api/dashboard/stats');
+    const json = await res.json();
+    
+    if (!json.success) throw new Error(json.error);
+    const d = json.data;
+    
+    // Stat cards
+    document.getElementById('statRS').textContent = fmtNum(d.total_rs);
+    document.getElementById('statKasus').textContent = fmtNum(d.total_kasus);
+    document.getElementById('statTarifINA').textContent = fmtCurrencyShort(d.total_tarif_inacbg);
+    document.getElementById('statTarifRS').textContent = fmtCurrencyShort(d.total_tarif_rs);
+    document.getElementById('statAudit2SD').textContent = fmtNum(d.audit_2sd);
+    document.getElementById('statAuditIQR').textContent = fmtNum(d.audit_iqr);
+    
+    document.getElementById('headerStatusBadge').textContent = `✅ Data Termuat`;
+    document.getElementById('headerStatusBadge').className = 'badge badge-aman';
+    
+    // CMI Thresholds
+    if (d.tabel_cmi && d.tabel_cmi.mean_cmi) {
+      const t = d.tabel_cmi;
+      document.getElementById('cmiThresholdCard').style.display = 'block';
+      document.getElementById('cmi2sdMean').textContent = t.mean_cmi.toFixed(4);
+      document.getElementById('cmi2sdStd').textContent = t.std_cmi.toFixed(4);
+      document.getElementById('cmi2sdLow').textContent = t.batas_bawah_2sd.toFixed(4);
+      document.getElementById('cmi2sdHigh').textContent = t.batas_atas_2sd.toFixed(4);
+      document.getElementById('cmiIqrQ1').textContent = t.q1.toFixed(4);
+      document.getElementById('cmiIqrQ3').textContent = t.q3.toFixed(4);
+      document.getElementById('cmiIqrLow').textContent = t.batas_bawah_iqr.toFixed(4);
+      document.getElementById('cmiIqrHigh').textContent = t.batas_atas_iqr.toFixed(4);
+    }
+    
+    // Regional Chart
+    const regLabels = d.regional_dist.map(r => r.regional.toUpperCase());
+    const regData = d.regional_dist.map(r => r.kasus);
+    renderDonutChart('chartRegional', regLabels, regData, 'Kasus per Regional');
+    
+    // Kelas Chart
+    const kelasLabels = d.kelas_dist.map(r => `Kelas ${r.kelas}`);
+    const kelasData = d.kelas_dist.map(r => r.kasus);
+    renderBarChart('chartKelas', kelasLabels, kelasData, 'Kasus per Kelas RS');
+    
+    // Top RS table
+    const tbody = document.getElementById('topRsBody');
+    tbody.innerHTML = '';
+    d.top_rs_selisih.forEach((rs, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="td-muted">${i+1}</td>
+        <td>
+          <div style="font-weight:600;">${rs.nama_rs || rs.kode_rs}</div>
+          <div class="text-xs text-muted">${rs.kode_rs}</div>
+        </td>
+        <td class="text-center">${fmtNum(rs.kasus)}</td>
+        <td><span class="currency positive">${fmtCurrency(rs.selisih)}</span></td>
+        <td>
+          <a href="/hospitals/${rs.kode_rs}" class="btn btn-secondary btn-sm">🔍 Detail</a>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    
+  } catch(err) {
+    console.error(err);
+    document.getElementById('headerStatusBadge').textContent = '❌ Error';
+    document.getElementById('headerStatusBadge').className = 'badge badge-audit';
+    showToast('Gagal memuat data: ' + err.message, 'error');
+  }
+}
+
+function renderDonutChart(canvasId, labels, data, label) {
+  const colors = ['#3b82f6','#06b6d4','#10b981','#f59e0b','#8b5cf6'];
+  new Chart(document.getElementById(canvasId), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ 
+        label, data,
+        backgroundColor: colors.slice(0, data.length),
+        borderColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { 
+          position: 'right',
+          labels: { color: '#94a3b8', font: { size: 11 }, padding: 12, boxWidth: 12 }
+        },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmtNum(ctx.raw)} kasus` } }
+      },
+      cutout: '65%'
+    }
+  });
+}
+
+function renderBarChart(canvasId, labels, data, label) {
+  new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data,
+        backgroundColor: ['#3b82f6','#06b6d4','#10b981','#f59e0b','#8b5cf6'],
+        borderRadius: 6,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { 
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${fmtNum(ctx.raw)} kasus` } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94a3b8', font: { size: 11 }, callback: v => fmtNum(v) } }
+      }
+    }
+  });
+}
+
+loadDashboard();
+</script>
+{% endblock %}

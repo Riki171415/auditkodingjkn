@@ -1,0 +1,692 @@
+{% extends "base.html" %}
+{% block title %}KKR-DR01 - Desk Review{% endblock %}
+
+{% block extra_head %}
+<style>
+  .kkr-actions { position: sticky; top: var(--header-height); z-index: 40; background: var(--bg-glass); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-subtle); padding: 12px 28px; margin: -28px -28px 28px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .status-sesuai { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); color:#6ee7b7; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+  .status-terindikasi { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); color:#fcd34d; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+  .status-tidak-dapat-dinilai { background:rgba(100,116,139,0.1); border:1px solid rgba(100,116,139,0.25); color:#94a3b8; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<a href="/">🏠</a><span class="sep">/</span>
+<a href="/hospitals">RS Sampel</a><span class="sep">/</span>
+<a href="#" id="bcRS">Desk Review</a><span class="sep">/</span>
+<span class="current">KKR-DR01</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- Actions Bar -->
+<div class="kkr-actions" id="kkrActions">
+  <span class="text-secondary text-sm">📋 Kertas Kerja Reviewer – Desk Review (KKR-DR01)</span>
+  <div style="margin-left:auto;" class="flex gap-2 flex-wrap">
+    <span id="saveStatus" class="badge badge-gray">Belum disimpan</span>
+    <button class="btn btn-success btn-sm" onclick="saveKKR()">💾 Simpan KKR</button>
+    <button id="btnExportExcel" class="btn btn-secondary btn-sm" onclick="exportExcel()" title="Export ke Excel (dengan QR Barcode)">📥 Excel</button>
+    <button id="btnExportPDF" class="btn btn-secondary btn-sm" onclick="exportPDF()" title="Export ke PDF (dengan QR Barcode)">📄 PDF</button>
+    <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ Cetak</button>
+    <a href="#" id="btnOnsite" class="btn btn-outline btn-sm">→ Buka KKR-OS01</a>
+  </div>
+</div>
+
+<!-- Loading State -->
+<div id="loadingState" class="text-center" style="padding:60px;">
+  <div class="spinner" style="margin:0 auto 16px;"></div>
+  <div class="text-secondary">Memuat data kasus & menjalankan validasi otomatis...</div>
+</div>
+
+<!-- KKR Form -->
+<div id="kkrForm" style="display:none;">
+  
+  <!-- ===== KKR HEADER ===== -->
+  <div class="kkr-form">
+    <div class="kkr-header">
+      <div class="kemenkes-badge">
+        🏥<div><div style="font-size:9px; font-weight:800; color:#003d7a; line-height:1.2;">KEMENTERIAN<br>KESEHATAN<br>REPUBLIK INDONESIA</div></div>
+      </div>
+      <div class="kkr-title-block">
+        <div class="kkr-doc-title">KERTAS KERJA REVIEWER – DESK REVIEW</div>
+        <div class="kkr-doc-subtitle">(KKR-DR01)</div>
+        <div class="kkr-doc-desc">AUDIT CODING DAN VERIFIKASI DUAL CODING<br>Transisi INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG)</div>
+      </div>
+      <div class="kkr-meta">
+        <div>KODE DOKUMEN : <strong>KKR-DR01</strong></div>
+        <div>VERSI : <strong>1.0</strong></div>
+        <div>TANGGAL BERLAKU : <strong id="metaTanggal">—</strong></div>
+        <div>HALAMAN : <strong>1 dari 1</strong></div>
+      </div>
+    </div>
+
+    <div class="kkr-body">
+      
+      <!-- Section 1 & 2 -->
+      <div class="kkr-grid-2 gap-4 mb-4">
+        
+        <!-- Section 1: Identitas Klaim -->
+        <div class="kkr-section">
+          <div class="kkr-section-header">
+            <div class="kkr-section-num">1</div>
+            <div class="kkr-section-title">Identitas Klaim (Data Klaim Data Center)</div>
+          </div>
+          <div class="kkr-section-body">
+            <div class="form-row"><span class="form-label">Nomor Klaim</span><div class="form-value" id="f1NomorKlaim">—</div></div>
+            <div class="form-row"><span class="form-label">Nomor SEP</span><div class="form-value td-mono" id="f1NomorSEP">—</div></div>
+            <div class="form-row"><span class="form-label">Nomor Peserta</span><div class="form-value td-mono" id="f1NomorPeserta">—</div></div>
+            <div class="form-row"><span class="form-label">Nama Peserta</span><div class="form-value" id="f1NamaPeserta">—</div></div>
+            <div class="form-row"><span class="form-label">Tgl Lahir / Umur</span><div class="form-value" id="f1TglLahir">—</div></div>
+            <div class="form-row"><span class="form-label">Jenis Kelamin</span><div class="form-value" id="f1JenisKelamin">—</div></div>
+            <div class="form-row"><span class="form-label">Tanggal Pelayanan</span><div class="form-value" id="f1TglPelayanan">—</div></div>
+            <div class="form-row"><span class="form-label">Jenis Pelayanan</span><div class="form-value" id="f1JenisPelayanan">—</div></div>
+            <div class="form-row"><span class="form-label">Fasilitas Kesehatan</span><div class="form-value" id="f1FPKTL">—</div></div>
+            <div class="form-row"><span class="form-label">Kode FPKTL</span><div class="form-value td-mono" id="f1KodeFPKTL">—</div></div>
+            <div class="form-row"><span class="form-label">Kelas Rawat</span><div class="form-value" id="f1KelasRawat">—</div></div>
+            <div class="form-row"><span class="form-label">Length of Stay</span><div class="form-value"><span id="f1LOS">—</span> hari</div></div>
+            <div class="form-row"><span class="form-label">DPJP (Data Klaim)</span><div class="form-value" id="f1DPJP">—</div></div>
+          </div>
+        </div>
+
+        <!-- Section 2: Informasi Grouping dan Tarif -->
+        <div>
+          <div class="kkr-section mb-3">
+            <div class="kkr-section-header">
+              <div class="kkr-section-num">2</div>
+              <div class="kkr-section-title">Informasi Grouping dan Tarif</div>
+            </div>
+            <div class="kkr-section-body">
+              <!-- Grouping comparison table -->
+              <table class="grouping-compare-table mb-3">
+                <thead>
+                  <tr>
+                    <th class="grouping-label" style="width:40%;">Komponen</th>
+                    <th class="inacbg-col">INA-CBG</th>
+                    <th class="idrg-col">iDRG</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="grouping-label">Kode</td>
+                    <td class="inacbg-col td-mono" id="g2KodeINA">—</td>
+                    <td class="idrg-col td-mono" id="g2KodeIDRG">—</td>
+                  </tr>
+                  <tr>
+                    <td class="grouping-label">Deskripsi</td>
+                    <td class="inacbg-col" id="g2DeskINA" style="font-size:11px; text-align:left;">—</td>
+                    <td class="idrg-col" id="g2DeskIDRG" style="font-size:11px; text-align:left;">—</td>
+                  </tr>
+                  <tr>
+                    <td class="grouping-label">Severity / Complexity Level</td>
+                    <td class="inacbg-col" id="g2SevINA">—</td>
+                    <td class="idrg-col" id="g2SevIDRG">—</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Tarif table -->
+              <table class="tarif-table" style="width:100%; font-size:13px; border-collapse:collapse;">
+                <tr style="border-bottom:1px solid var(--border-subtle); padding:6px 0;">
+                  <td style="color:var(--text-secondary); padding:6px 0;">Tarif Klaim (INA-CBG)</td>
+                  <td style="text-align:right; font-family:var(--font-mono); font-weight:700;" id="t2TarifINA">—</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border-subtle);">
+                  <td style="color:var(--text-secondary); padding:6px 0;">Tarif RS (Tarif Standar)</td>
+                  <td style="text-align:right; font-family:var(--font-mono); font-weight:700;" id="t2TarifRS">—</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--text-secondary); padding:6px 0; font-weight:600;">Selisih (Tarif Klaim – Tarif RS)</td>
+                  <td style="text-align:right; font-family:var(--font-mono); font-weight:800; font-size:15px;" id="t2Selisih">—</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Input Data Klaim -->
+      <div class="kkr-section mb-4">
+        <div class="kkr-section-header">
+          <div class="kkr-section-num">3</div>
+          <div class="kkr-section-title">Input Data Klaim (Berdasarkan Data Klaim Data Center)</div>
+        </div>
+        <div class="kkr-section-body" style="padding:0; overflow:hidden;">
+          <div class="kkr-grid-2 gap-0" style="border-bottom:1px solid var(--border-subtle);">
+            <!-- Diagnosa -->
+            <div style="border-right:1px solid var(--border-subtle); padding:0;">
+              <div style="background:rgba(59,130,246,0.08); padding:10px 16px; font-size:11px; font-weight:700; color:var(--accent-blue); text-transform:uppercase; text-align:center; border-bottom:1px solid var(--border-subtle);">DIAGNOSA</div>
+              <div class="kkr-grid-2 gap-0" style="display:grid; grid-template-columns:1fr 1fr;">
+                <div style="padding:8px 12px; background:rgba(6,182,212,0.06); border-right:1px solid var(--border-subtle); border-bottom:1px solid var(--border-subtle); font-size:11px; font-weight:600; color:var(--accent-cyan); text-align:center;">INA-CBG</div>
+                <div style="padding:8px 12px; background:rgba(139,92,246,0.06); border-bottom:1px solid var(--border-subtle); font-size:11px; font-weight:600; color:var(--accent-purple); text-align:center;">iDRG</div>
+              </div>
+              <div id="diagnosisTable" style="overflow-x:auto;"></div>
+            </div>
+            <!-- Prosedur -->
+            <div style="padding:0;">
+              <div style="background:rgba(16,185,129,0.08); padding:10px 16px; font-size:11px; font-weight:700; color:var(--accent-emerald); text-transform:uppercase; text-align:center; border-bottom:1px solid var(--border-subtle);">PROSEDUR</div>
+              <div class="kkr-grid-2 gap-0" style="display:grid; grid-template-columns:1fr 1fr;">
+                <div style="padding:8px 12px; background:rgba(6,182,212,0.06); border-right:1px solid var(--border-subtle); border-bottom:1px solid var(--border-subtle); font-size:11px; font-weight:600; color:var(--accent-cyan); text-align:center;">INA-CBG</div>
+                <div style="padding:8px 12px; background:rgba(139,92,246,0.06); border-bottom:1px solid var(--border-subtle); font-size:11px; font-weight:600; color:var(--accent-purple); text-align:center;">iDRG</div>
+              </div>
+              <div id="procedureTable" style="overflow-x:auto;"></div>
+            </div>
+          </div>
+          <div style="padding:10px 16px; font-size:11px; color:var(--text-muted); font-style:italic;">
+            Catatan: Isi sesuai urutan kode yang tercantum pada data klaim. iDRG diisi apabila telah tersedia.
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4 & 5 -->
+      <div class="kkr-grid-2 gap-4 mb-4">
+        
+        <!-- Section 4: Ringkasan Temuan -->
+        <div class="kkr-section">
+          <div class="kkr-section-header">
+            <div class="kkr-section-num">4</div>
+            <div class="kkr-section-title">Ringkasan Temuan (Hasil Validasi Otomatis berdasarkan Rule)</div>
+          </div>
+          <div class="kkr-section-body" style="padding:0;">
+            <div id="rulesContainer">
+              <div class="text-center text-muted" style="padding:20px;">Menjalankan validasi...</div>
+            </div>
+            <div style="padding:10px 16px; font-size:11px; color:var(--text-muted); font-style:italic; border-top:1px solid var(--border-subtle);">
+              Catatan: Ringkasan temuan dihasilkan otomatis oleh sistem berdasarkan aturan pengodean (ICD-10, ICD-9-CM/PCS, ICS/iDRG, dan Aturan Grouping).
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 5 & 6 -->
+        <div class="flex flex-col gap-4">
+          <div class="kkr-section" style="flex:1;">
+            <div class="kkr-section-header">
+              <div class="kkr-section-num">5</div>
+              <div class="kkr-section-title">Analisis Reviewer</div>
+            </div>
+            <div class="kkr-section-body">
+              <p class="text-xs text-muted mb-2">Uraian analisis berdasarkan ringkasan temuan:</p>
+              <textarea id="f5Analisis" class="form-textarea w-full" placeholder="Tuliskan uraian analisis reviewer berdasarkan temuan validasi otomatis..."></textarea>
+              
+              <p class="text-xs text-muted mb-2 mt-3">Tingkat Keyakinan Reviewer:</p>
+              <div class="confidence-group">
+                <div class="confidence-item rendah" id="confRendah" onclick="setConfidence('Rendah')">
+                  <div class="confidence-dot"></div>
+                  <div class="confidence-text">
+                    <h4>Rendah</h4>
+                    <p>Indikasi masih sangat lemah / data sangat terbatas</p>
+                  </div>
+                </div>
+                <div class="confidence-item sedang" id="confSedang" onclick="setConfidence('Sedang')">
+                  <div class="confidence-dot"></div>
+                  <div class="confidence-text">
+                    <h4>Sedang</h4>
+                    <p>Indikasi cukup kuat namun belum konklusif</p>
+                  </div>
+                </div>
+                <div class="confidence-item tinggi" id="confTinggi" onclick="setConfidence('Tinggi')">
+                  <div class="confidence-dot"></div>
+                  <div class="confidence-text">
+                    <h4>Tinggi</h4>
+                    <p>Indikasi sangat kuat berdasarkan data klaim</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="kkr-section">
+            <div class="kkr-section-header">
+              <div class="kkr-section-num">6</div>
+              <div class="kkr-section-title">Keputusan Reviewer</div>
+            </div>
+            <div class="kkr-section-body">
+              <p class="text-xs text-muted mb-2">Berdasarkan hasil validasi dan analisis di atas, kasus ini:</p>
+              <div class="decision-options">
+                <div class="decision-option" id="decTidak" onclick="setDecision('Tidak diperlukan tindak lanjut')">
+                  <span class="decision-icon">✅</span>
+                  <span class="decision-label">Tidak diperlukan tindak lanjut</span>
+                </div>
+                <div class="decision-option" id="decMonitoring" onclick="setDecision('Perlu Monitoring')">
+                  <span class="decision-icon">👁️</span>
+                  <span class="decision-label">Perlu Monitoring</span>
+                </div>
+                <div class="decision-option" id="decOnsite" onclick="setDecision('Direkomendasikan On-Site Audit')">
+                  <span class="decision-icon">🏥</span>
+                  <span class="decision-label">Direkomendasikan On-Site Audit</span>
+                </div>
+                <div class="decision-option" id="decTdkDapat" onclick="setDecision('Data tidak cukup untuk dinilai')">
+                  <span class="decision-icon">❓</span>
+                  <span class="decision-label">Data tidak cukup untuk dinilai</span>
+                </div>
+              </div>
+              <div class="mt-3">
+                <p class="text-xs text-muted mb-1">Alasan / Catatan Singkat:</p>
+                <input type="text" id="f6Alasan" class="form-input w-full" placeholder="Tuliskan alasan atau catatan singkat...">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 7 & 8 -->
+      <div class="kkr-grid-2 gap-4 mb-4">
+        <div class="kkr-section">
+          <div class="kkr-section-header">
+            <div class="kkr-section-num">7</div>
+            <div class="kkr-section-title">Catatan Tambahan Reviewer</div>
+          </div>
+          <div class="kkr-section-body">
+            <textarea id="f7Catatan" class="form-textarea w-full" style="min-height:100px;" placeholder="Catatan tambahan, temuan lain, atau hal yang perlu diperhatikan..."></textarea>
+          </div>
+        </div>
+
+        <div class="kkr-section">
+          <div class="kkr-section-header">
+            <div class="kkr-section-num">8</div>
+            <div class="kkr-section-title">Paraf Reviewer</div>
+          </div>
+          <div class="kkr-section-body">
+            <div class="kkr-grid-2 gap-3">
+              <div>
+                <p class="text-xs text-muted mb-2">Reviewer,</p>
+                <input type="text" id="f8Reviewer" class="form-input w-full mb-2" placeholder="Nama Reviewer">
+                <input type="text" id="f8TglReviewer" class="form-input w-full" placeholder="Tanggal (dd/mm/yyyy)" 
+                       value="{{ ''|format_date if '' else '' }}">
+              </div>
+              <div>
+                <p class="text-xs text-muted mb-2">Ketua Tim Reviewer,</p>
+                <input type="text" id="f8Ketua" class="form-input w-full mb-2" placeholder="Nama Ketua Tim">
+                <input type="text" id="f8TglKetua" class="form-input w-full" placeholder="Tanggal (dd/mm/yyyy)">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Legend -->
+      <div class="kkr-grid-2 gap-4 mt-3">
+        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:14px;">
+          <div class="text-xs font-bold mb-2 text-secondary" style="text-transform:uppercase; letter-spacing:0.5px;">Keterangan Hasil Validasi (Otomatis)</div>
+          <div class="mb-1 text-xs"><span class="status-sesuai">Sesuai Rule</span> <span class="text-muted ml-1">Tidak ditemukan indikasi pelanggaran terhadap aturan pengodean.</span></div>
+          <div class="mb-1 text-xs"><span class="status-terindikasi">Terindikasi</span> <span class="text-muted ml-1">Ditemukan indikasi ketidaksesuaian terhadap satu atau lebih aturan pengodean berdasarkan data klaim.</span></div>
+          <div class="text-xs"><span class="status-tidak-dapat-dinilai">Tidak Dapat Dinilai</span> <span class="text-muted ml-1">Rule tidak dapat diterapkan pada kasus ini berdasarkan data klaim yang tersedia.</span></div>
+        </div>
+        <div style="background:rgba(239,68,68,0.04); border:1px solid rgba(239,68,68,0.15); border-radius:var(--radius-md); padding:14px;">
+          <div class="text-xs font-bold mb-2 text-secondary" style="text-transform:uppercase; letter-spacing:0.5px;">Catatan Penting</div>
+          <ol style="font-size:11px; color:var(--text-muted); padding-left:16px; line-height:1.8;">
+            <li>Formulir ini digunakan untuk <strong>Desk Review</strong> berdasarkan data klaim pada Data Center.</li>
+            <li>Penilaian ini <strong>bukan penetapan benar/salah</strong> pengodean.</li>
+            <li>Verifikasi definitif dilakukan pada <strong>On-Site Audit</strong>.</li>
+          </ol>
+        </div>
+      </div>
+
+    </div><!-- /kkr-body -->
+  </div><!-- /kkr-form -->
+</div><!-- /#kkrForm -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SEP = decodeURIComponent('{{ sep }}');
+let caseData = null;
+let validationData = null;
+let selectedConfidence = '';
+let selectedDecision = '';
+
+// ---- Initialize ----
+async function init() {
+  document.getElementById('metaTanggal').textContent = new Date().toLocaleDateString('id-ID');
+  document.getElementById('btnOnsite').href = `/kkr-os01/${encodeURIComponent(SEP)}`;
+  
+  try {
+    // Load validation data (includes case data)
+    const res = await fetch(`/api/validate/${encodeURIComponent(SEP)}`);
+    const json = await res.json();
+    
+    if (!json.success) throw new Error(json.error);
+    
+    validationData = json.data;
+    caseData = validationData.case;
+    
+    // Populate form
+    populateIdentitas();
+    populateGroupingTarif();
+    populateDiagnosis();
+    populateProsedur();
+    populateRules();
+    
+    // Set auto-recommendation
+    setDecision(validationData.rekomendasi);
+    
+    // Load saved KKR if exists
+    await loadSavedKKR();
+    
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('kkrForm').style.display = 'block';
+    
+    // Update breadcrumb
+    document.getElementById('bcRS').textContent = caseData.nama_rs || caseData.kode_rs;
+    document.getElementById('bcRS').href = `/desk-review/${caseData.kode_rs}`;
+    
+  } catch(err) {
+    document.getElementById('loadingState').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">❌</div>
+        <div class="empty-state-title">Gagal memuat data</div>
+        <div class="empty-state-desc">${err.message}</div>
+      </div>`;
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+function populateIdentitas() {
+  const c = caseData;
+  setText('f1NomorKlaim', '-');
+  setText('f1NomorSEP', c.sep || '-');
+  setText('f1NomorPeserta', '-');
+  setText('f1NamaPeserta', '-');
+  setText('f1TglLahir', '- / -');
+  setText('f1JenisKelamin', '-');
+  setText('f1TglPelayanan', c.discharge_date || '-');
+  
+  const kelasRawat = c.kelas_rawat;
+  const jenisPel = kelasRawat == 3 ? '☑ Rawat Inap (Kelas 3)' : kelasRawat == 2 ? '☑ Rawat Inap (Kelas 2)' : kelasRawat == 1 ? '☑ Rawat Inap (Kelas 1)' : '—';
+  setText('f1JenisPelayanan', jenisPel);
+  setText('f1FPKTL', c.nama_rs || '-');
+  setText('f1KodeFPKTL', c.kode_rs || '-');
+  setText('f1KelasRawat', `Kelas ${c.kelas_rawat || '-'}`);
+  setText('f1LOS', c.alos || '-');
+  setText('f1DPJP', '-');
+}
+
+function populateGroupingTarif() {
+  const c = caseData;
+  // INA-CBG info
+  setText('g2KodeINA', c.inacbg || '-');
+  setText('g2DeskINA', c.deskripsi_inacbg || '-');
+  
+  // Severity from inacbg code (last char)
+  const inacbg = c.inacbg || '';
+  const severityMap = {'I': 'I - Ringan', 'II': 'II - Sedang', 'III': 'III - Berat', '-I': 'I', '-II': 'II', '-III': 'III'};
+  const lastPart = inacbg.split('-').pop();
+  setText('g2SevINA', lastPart ? `Severity ${lastPart}` : '-');
+  
+  // iDRG info (from idrg_code if available)
+  setText('g2KodeIDRG', c.idrg_code || '—');
+  setText('g2DeskIDRG', c.deskripsi_idrg || '(Belum tersedia)');
+  setText('g2SevIDRG', '-');
+  
+  // Tarif
+  const tarifINA = c.tarif_inacbg || 0;
+  const tarifRS = c.tarif_rs || 0;
+  const selisih = tarifINA - tarifRS;
+  
+  setText('t2TarifINA', `Rp ${fmtCurrency(tarifINA)}`);
+  setText('t2TarifRS', `Rp ${fmtCurrency(tarifRS)}`);
+  
+  const selEl = document.getElementById('t2Selisih');
+  selEl.textContent = `Rp ${fmtCurrency(Math.abs(selisih))} ${selisih >= 0 ? '(INA > RS)' : '(RS > INA)'}`;
+  selEl.className = selisih >= 0 ? 'selisih-negative' : 'selisih-positive';
+}
+
+function populateDiagnosis() {
+  const diags = validationData.diag_codes || [];
+  const triggered = validationData.triggered_rules || [];
+  
+  // Get triggered codes
+  const triggeredCodes = new Set();
+  triggered.forEach(r => {
+    if (r.evidence) {
+      const matches = r.evidence.match(/[A-Z]\d{2}(\.\d+)?/g);
+      if (matches) matches.forEach(m => triggeredCodes.add(m));
+    }
+  });
+  
+  let html = `<table style="width:100%; font-size:12px; border-collapse:collapse;">
+    <tr style="background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border-subtle);">
+      <td style="padding:4px 8px; color:var(--text-muted); width:30px; text-align:center;">No.</td>
+      <td style="padding:4px 8px; color:var(--text-muted);">Kode ICD</td>
+      <td style="padding:4px 8px; color:var(--text-muted);">Kode iDRG</td>
+    </tr>`;
+  
+  const maxRows = Math.max(10, diags.length);
+  for (let i = 0; i < maxRows; i++) {
+    const code = diags[i] || '';
+    const isTriggered = triggeredCodes.has(code);
+    html += `<tr style="border-bottom:1px solid var(--border-subtle);">
+      <td style="padding:5px 8px; color:var(--text-muted); text-align:center; font-size:11px;">${i+1}</td>
+      <td style="padding:5px 8px;">
+        ${code ? `<span class="code-chip ${isTriggered ? 'triggered' : ''}">${code}</span>` : '<span class="text-muted text-xs">—</span>'}
+      </td>
+      <td style="padding:5px 8px; color:var(--text-muted); font-size:11px;">—</td>
+    </tr>`;
+  }
+  
+  html += '</table>';
+  document.getElementById('diagnosisTable').innerHTML = html;
+}
+
+function populateProsedur() {
+  const procs = validationData.proc_codes || [];
+  
+  let html = `<table style="width:100%; font-size:12px; border-collapse:collapse;">
+    <tr style="background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border-subtle);">
+      <td style="padding:4px 8px; color:var(--text-muted); width:30px; text-align:center;">No.</td>
+      <td style="padding:4px 8px; color:var(--text-muted);">Kode INA-CBG</td>
+      <td style="padding:4px 8px; color:var(--text-muted);">Kode iDRG</td>
+    </tr>`;
+  
+  const maxRows = Math.max(10, procs.length);
+  for (let i = 0; i < maxRows; i++) {
+    const code = procs[i] || '';
+    html += `<tr style="border-bottom:1px solid var(--border-subtle);">
+      <td style="padding:5px 8px; color:var(--text-muted); text-align:center; font-size:11px;">${i+1}</td>
+      <td style="padding:5px 8px;">
+        ${code ? `<span class="code-chip proc">${code}</span>` : '<span class="text-muted text-xs">—</span>'}
+      </td>
+      <td style="padding:5px 8px; color:var(--text-muted); font-size:11px;">—</td>
+    </tr>`;
+  }
+  
+  html += '</table>';
+  document.getElementById('procedureTable').innerHTML = html;
+}
+
+function populateRules() {
+  const rules = validationData.triggered_rules || [];
+  const total = validationData.total_triggered;
+  
+  const container = document.getElementById('rulesContainer');
+  
+  if (rules.length === 0) {
+    container.innerHTML = `<div class="text-center" style="padding:20px;">
+      <div style="font-size:28px; margin-bottom:8px;">✅</div>
+      <div style="color:var(--accent-emerald); font-weight:600; font-size:14px;">Tidak ada temuan</div>
+      <div class="text-xs text-muted mt-1">Semua aturan validasi terpenuhi</div>
+    </div>`;
+    return;
+  }
+  
+  // Show summary header
+  let html = `<div style="padding:12px 16px; background:rgba(245,158,11,0.06); border-bottom:1px solid var(--border-subtle); display:flex; align-items:center; gap:10px;">
+    <span style="font-size:20px;">⚠️</span>
+    <div>
+      <div style="font-size:13px; font-weight:700; color:var(--accent-amber);">${total} Aturan Terindikasi</div>
+      <div class="text-xs text-muted">Validasi otomatis berdasarkan aturan pengodean ICD-10, ICD-9-CM, dan ICS</div>
+    </div>
+  </div>`;
+  
+  // Table header
+  html += `<table class="rule-summary-table">
+    <thead>
+      <tr>
+        <th style="width:30px;">#</th>
+        <th style="width:110px;">Rule ID</th>
+        <th>Nama Rule</th>
+        <th style="width:90px;">Hasil Validasi</th>
+        <th style="width:80px;">Severity</th>
+        <th>Potensi Dampak</th>
+      </tr>
+    </thead>
+    <tbody>`;
+  
+  rules.forEach((r, i) => {
+    const sevClass = r.severity === 'High' ? 'badge-audit' : r.severity === 'Medium' ? 'badge-monitoring' : 'badge-aman';
+    html += `<tr>
+      <td class="text-muted text-sm">${i+1}</td>
+      <td><span class="td-mono" style="font-size:11px;">${r.rule_id}</span></td>
+      <td>
+        <div style="font-weight:600; font-size:12px; margin-bottom:3px;">${r.nama_aturan}</div>
+        <div style="font-size:11px; color:var(--accent-amber);">${r.evidence}</div>
+        <div style="font-size:11px; color:var(--text-muted);">${r.pesan_validasi}</div>
+      </td>
+      <td><span class="status-terindikasi">Terindikasi</span></td>
+      <td><span class="badge ${sevClass}">${r.severity}</span></td>
+      <td style="font-size:11px; color:var(--text-muted);">${r.rekomendasi_reviewer}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function setConfidence(level) {
+  selectedConfidence = level;
+  ['Rendah', 'Sedang', 'Tinggi'].forEach(l => {
+    const el = document.getElementById(`conf${l}`);
+    if (el) el.classList.remove('selected');
+  });
+  const el = document.getElementById(`conf${level}`);
+  if (el) el.classList.add('selected');
+}
+
+function setDecision(decision) {
+  selectedDecision = decision;
+  const map = {
+    'Tidak diperlukan tindak lanjut': 'decTidak',
+    'Perlu Monitoring': 'decMonitoring',
+    'Direkomendasikan On-Site Audit': 'decOnsite',
+    'Data tidak cukup untuk dinilai': 'decTdkDapat'
+  };
+  
+  Object.values(map).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('selected', 'danger', 'warning');
+  });
+  
+  const targetId = map[decision];
+  if (targetId) {
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.classList.add('selected');
+      if (decision.includes('On-Site')) el.classList.add('danger');
+      else if (decision.includes('Monitoring')) el.classList.add('warning');
+    }
+  }
+}
+
+async function saveKKR() {
+  const payload = {
+    sep: SEP,
+    kode_rs: caseData?.kode_rs,
+    nama_rs: caseData?.nama_rs,
+    inacbg: caseData?.inacbg,
+    tanggal_review: new Date().toISOString(),
+    triggered_rules: validationData?.triggered_rules || [],
+    total_triggered: validationData?.total_triggered || 0,
+    analisis_reviewer: document.getElementById('f5Analisis')?.value || '',
+    tingkat_keyakinan: selectedConfidence,
+    keputusan_reviewer: selectedDecision,
+    alasan: document.getElementById('f6Alasan')?.value || '',
+    catatan_tambahan: document.getElementById('f7Catatan')?.value || '',
+    reviewer: document.getElementById('f8Reviewer')?.value || '',
+    tgl_reviewer: document.getElementById('f8TglReviewer')?.value || '',
+    ketua_tim: document.getElementById('f8Ketua')?.value || '',
+    tgl_ketua: document.getElementById('f8TglKetua')?.value || ''
+  };
+  
+  try {
+    const res = await fetch('/api/kkr-dr01/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    
+    if (json.success) {
+      document.getElementById('saveStatus').textContent = '✅ Tersimpan';
+      document.getElementById('saveStatus').className = 'badge badge-aman';
+      showToast('KKR-DR01 berhasil disimpan', 'success');
+    } else {
+      throw new Error(json.error);
+    }
+  } catch(err) {
+    showToast('Gagal menyimpan: ' + err.message, 'error');
+  }
+}
+
+async function loadSavedKKR() {
+  try {
+    const res = await fetch(`/api/kkr-dr01/load/${encodeURIComponent(SEP)}`);
+    const json = await res.json();
+    if (json.success && json.data) {
+      const d = json.data;
+      if (d.analisis_reviewer) document.getElementById('f5Analisis').value = d.analisis_reviewer;
+      if (d.tingkat_keyakinan) setConfidence(d.tingkat_keyakinan);
+      if (d.keputusan_reviewer) setDecision(d.keputusan_reviewer);
+      if (d.alasan) document.getElementById('f6Alasan').value = d.alasan;
+      if (d.catatan_tambahan) document.getElementById('f7Catatan').value = d.catatan_tambahan;
+      if (d.reviewer) document.getElementById('f8Reviewer').value = d.reviewer;
+      if (d.tgl_reviewer) document.getElementById('f8TglReviewer').value = d.tgl_reviewer;
+      if (d.ketua_tim) document.getElementById('f8Ketua').value = d.ketua_tim;
+      if (d.tgl_ketua) document.getElementById('f8TglKetua').value = d.tgl_ketua;
+      
+      document.getElementById('saveStatus').textContent = '💾 Tersimpan sebelumnya';
+      document.getElementById('saveStatus').className = 'badge badge-blue';
+    }
+  } catch(e) { /* ignore */ }
+}
+
+async function exportExcel() {
+  const btn = document.getElementById('btnExportExcel');
+  const ogText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-sm"></span>...';
+  btn.disabled = true;
+  
+  try {
+    window.location.href = `/api/export/dr01/excel/${encodeURIComponent(SEP)}`;
+  } catch(err) {
+    showToast('Gagal export Excel', 'error');
+  } finally {
+    setTimeout(() => { btn.innerHTML = ogText; btn.disabled = false; }, 2000);
+  }
+}
+
+async function exportPDF() {
+  const btn = document.getElementById('btnExportPDF');
+  const ogText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-sm"></span>...';
+  btn.disabled = true;
+  
+  try {
+    window.location.href = `/api/export/dr01/pdf/${encodeURIComponent(SEP)}`;
+  } catch(err) {
+    showToast('Gagal export PDF', 'error');
+  } finally {
+    setTimeout(() => { btn.innerHTML = ogText; btn.disabled = false; }, 2000);
+  }
+}
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text || '—';
+}
+
+function showInfo() {
+  document.getElementById('infoModal').style.display = 'flex';
+}
+
+init();
+</script>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Rekapitulasi Audit 2025{% endblock %}
+
+{% block breadcrumb %}
+<a href="/">🏠</a><span class="sep">/</span>
+<span class="current">Rekapitulasi Audit</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="page-title">📋 Rekapitulasi Hasil Audit Koding 2025</h1>
+      <p class="page-subtitle">Ringkasan seluruh KKR-DR01 yang telah disimpan</p>
+    </div>
+    <div class="flex gap-2">
+      <button class="btn btn-secondary" onclick="loadData()">🔄 Refresh</button>
+    </div>
+  </div>
+</div>
+
+<div id="emptyState" class="empty-state" style="padding:80px;">
+  <div class="empty-state-icon">📋</div>
+  <div class="empty-state-title">Belum ada KKR yang disimpan</div>
+  <div class="empty-state-desc">Lakukan Desk Review pada kasus-kasus dari RS Sampel, kemudian simpan KKR-DR01 untuk menampilkan rekapitulasi di sini.</div>
+  <a href="/hospitals" class="btn btn-primary mt-4" style="margin-top:16px;">→ Mulai Desk Review</a>
+</div>
+
+<div id="rekapContent" style="display:none;">
+  <!-- Summary stats -->
+  <div class="stat-grid mb-4">
+    <div class="stat-card blue">
+      <div class="stat-icon">📁</div>
+      <div class="stat-value" id="rTotalKKR">0</div>
+      <div class="stat-label">Total KKR Disimpan</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-value" id="rDenganTemuan">0</div>
+      <div class="stat-label">KKR dengan Temuan</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-icon">🏥</div>
+      <div class="stat-value" id="rOnsite">0</div>
+      <div class="stat-label">Rekomendasi On-Site</div>
+    </div>
+    <div class="stat-card emerald">
+      <div class="stat-icon">✅</div>
+      <div class="stat-value" id="rAman">0</div>
+      <div class="stat-label">Kasus Aman</div>
+    </div>
+  </div>
+
+  <!-- Rekapitulasi Table -->
+  <div class="card" style="padding:0; overflow:hidden;">
+    <div class="card-header" style="padding:16px 20px;">
+      <div class="card-title">Daftar KKR-DR01 Tersimpan</div>
+    </div>
+    <div class="table-container" style="border:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nomor SEP</th>
+            <th>Nama RS</th>
+            <th>Kode INACBG</th>
+            <th>Temuan</th>
+            <th>Keputusan Reviewer</th>
+            <th>Reviewer</th>
+            <th>Tanggal Review</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="rekapBody">
+          <tr><td colspan="9" class="text-center text-muted">Memuat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadData() {
+  try {
+    const res = await fetch('/api/laporan/rekapitulasi');
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    
+    const data = json.data;
+    
+    if (data.length === 0) {
+      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('rekapContent').style.display = 'none';
+      return;
+    }
+    
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('rekapContent').style.display = 'block';
+    
+    const total = data.length;
+    const denganTemuan = data.filter(d => d.total_triggered > 0).length;
+    const onsite = data.filter(d => d.keputusan && d.keputusan.includes('On-Site')).length;
+    const aman = data.filter(d => !d.total_triggered || d.total_triggered === 0).length;
+    
+    document.getElementById('rTotalKKR').textContent = fmtNum(total);
+    document.getElementById('rDenganTemuan').textContent = fmtNum(denganTemuan);
+    document.getElementById('rOnsite').textContent = fmtNum(onsite);
+    document.getElementById('rAman').textContent = fmtNum(aman);
+    
+    const tbody = document.getElementById('rekapBody');
+    tbody.innerHTML = data.map((d, i) => {
+      let kepBadge = '';
+      if (d.keputusan) {
+        if (d.keputusan.includes('On-Site')) kepBadge = '<span class="badge badge-onsite">🏥 On-Site Audit</span>';
+        else if (d.keputusan.includes('Monitoring')) kepBadge = '<span class="badge badge-monitoring">👁️ Monitoring</span>';
+        else if (d.keputusan.includes('tidak')) kepBadge = '<span class="badge badge-aman">✅ Aman</span>';
+        else kepBadge = `<span class="badge badge-gray">${d.keputusan}</span>`;
+      }
+      
+      const tgl = d.tanggal ? new Date(d.tanggal).toLocaleDateString('id-ID') : '—';
+      
+      return `<tr>
+        <td class="td-muted">${i+1}</td>
+        <td class="td-mono" style="font-size:11px;">${(d.sep || '').substring(0,20)}...</td>
+        <td style="font-weight:600; max-width:200px;">${d.nama_rs || '-'}</td>
+        <td class="td-mono">${d.inacbg || '-'}</td>
+        <td class="text-center">
+          ${d.total_triggered > 0 
+            ? `<span class="badge badge-audit">${d.total_triggered} temuan</span>`
+            : '<span class="badge badge-aman">Nihil</span>'}
+        </td>
+        <td>${kepBadge || '—'}</td>
+        <td class="td-muted">${d.reviewer || '—'}</td>
+        <td class="td-muted text-sm">${tgl}</td>
+        <td>
+          <a href="/kkr-dr01/${encodeURIComponent(d.sep)}" class="btn btn-secondary btn-sm">📋 Buka</a>
+        </td>
+      </tr>`;
+    }).join('');
+    
+  } catch(err) {
+    showToast('Gagal memuat rekapitulasi: ' + err.message, 'error');
+  }
+}
+
+loadData();
+</script>
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Detail RS - Audit Koding{% endblock %}
+
+{% block breadcrumb %}
+<a href="/">🏠</a><span class="sep">/</span>
+<a href="/hospitals">RS Sampel</a><span class="sep">/</span>
+<span class="current" id="bcRS">Detail RS</span>
+{% endblock %}
+
+{% block content %}
+<div id="loadingState" class="text-center" style="padding:60px;">
+  <div class="spinner" style="margin:0 auto 16px;"></div>
+  <div class="text-secondary">Memuat data rumah sakit...</div>
+</div>
+
+<div id="pageContent" style="display:none;">
+  <div class="page-header">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="page-title" id="rsName">—</h1>
+        <p class="page-subtitle" id="rsSubtitle">—</p>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <a href="#" id="btnDeskReview" class="btn btn-primary">🔍 Mulai Desk Review</a>
+        <a href="/hospitals" class="btn btn-secondary">← Kembali</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- RS Info & CMI -->
+  <div class="grid-2 gap-4 mb-4">
+    <div class="card">
+      <div class="card-title mb-3">🏨 Informasi Rumah Sakit</div>
+      <div class="form-row"><span class="form-label" style="min-width:120px;">Kode RS</span><div class="form-value td-mono" id="rsKode">—</div></div>
+      <div class="form-row"><span class="form-label" style="min-width:120px;">Nama RS</span><div class="form-value" id="rsNama">—</div></div>
+      <div class="form-row"><span class="form-label" style="min-width:120px;">Kelas</span><div class="form-value" id="rsKelas">—</div></div>
+      <div class="form-row"><span class="form-label" style="min-width:120px;">Pemilik</span><div class="form-value" id="rsPemilik">—</div></div>
+      <div class="form-row"><span class="form-label" style="min-width:120px;">Provinsi</span><div class="form-value" id="rsProv">—</div></div>
+      <div class="form-row"><span class="form-label" style="min-width:120px;">Regional</span><div class="form-value" id="rsRegional">—</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title mb-3">📊 Status CMI & Audit Risk</div>
+      <div class="stat-grid" style="grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="stat-card blue" style="padding:14px;">
+          <div class="stat-value" id="cmiValue" style="font-size:20px;">—</div>
+          <div class="stat-label">Nilai CMI</div>
+        </div>
+        <div class="stat-card cyan" style="padding:14px;">
+          <div class="stat-value" id="casemixValue" style="font-size:20px;">—</div>
+          <div class="stat-label">Total Casemix</div>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-3 flex-wrap">
+        <div>
+          <div class="text-xs text-muted mb-1">Status 2SD</div>
+          <div id="status2SD">—</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted mb-1">Status IQR</div>
+          <div id="statusIQR">—</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted mb-1">Total Kasus</div>
+          <div style="font-weight:700; font-size:16px;" id="totalKasus">—</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted mb-1">Avg LOS</div>
+          <div style="font-weight:700;" id="avgLOS">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Financial Stats -->
+  <div class="stat-grid mb-4">
+    <div class="stat-card amber">
+      <div class="stat-icon">💰</div>
+      <div class="stat-value" id="statTarifINA" style="font-size:18px;">—</div>
+      <div class="stat-label">Total Tarif INA-CBG</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon">🏦</div>
+      <div class="stat-value" id="statTarifRS" style="font-size:18px;">—</div>
+      <div class="stat-label">Total Tarif RS</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-value" id="statSelisih" style="font-size:18px;">—</div>
+      <div class="stat-label">Selisih (RS - INA-CBG)</div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="card mb-4" style="background:rgba(59,130,246,0.06); border-color:rgba(59,130,246,0.2);">
+    <div class="flex items-center gap-4 flex-wrap">
+      <div class="flex-1">
+        <div class="card-title">🚀 Mulai Audit Koding</div>
+        <div class="text-secondary text-sm mt-1">Lakukan Desk Review dengan Rule-Based Coding Validation pada seluruh kasus RS ini.</div>
+      </div>
+      <a id="btnStartDesk" href="#" class="btn btn-primary btn-lg">🔍 Desk Review →</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const KODE_RS = '{{ kode_rs }}';
+
+async function init() {
+  try {
+    const res = await fetch(`/api/hospitals/${KODE_RS}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    const d = json.data;
+    
+    const info = d.info;
+    const stats = d.stats;
+    const cmi = d.cmi_info;
+    
+    document.getElementById('rsName').textContent = info.nama_rs || KODE_RS;
+    document.getElementById('rsSubtitle').textContent = `${info.nama_prop || ''} | Kelas ${info.kelas || '?'} | ${info.pemilik === 'P' ? 'Pemerintah' : 'Swasta'}`;
+    document.getElementById('bcRS').textContent = info.nama_rs || KODE_RS;
+    
+    document.getElementById('rsKode').textContent = KODE_RS;
+    document.getElementById('rsNama').textContent = info.nama_rs || '—';
+    document.getElementById('rsKelas').innerHTML = `<span class="badge badge-blue">Kelas ${info.kelas || '?'}</span>`;
+    document.getElementById('rsPemilik').textContent = info.pemilik === 'P' ? '🏛️ Pemerintah' : '🏢 Swasta';
+    document.getElementById('rsProv').textContent = info.nama_prop || '—';
+    document.getElementById('rsRegional').textContent = (info.regional || '').toUpperCase();
+    
+    document.getElementById('cmiValue').textContent = cmi.cmi ? cmi.cmi.toFixed(4) : '—';
+    document.getElementById('casemixValue').textContent = cmi.casemix ? fmtNum(Math.round(cmi.casemix)) : '—';
+    
+    const status2SD = cmi.Audit_2SD;
+    document.getElementById('status2SD').innerHTML = status2SD === 'Audit' 
+      ? '<span class="badge badge-audit">⚠️ Perlu Audit</span>'
+      : status2SD === 'Aman'
+      ? '<span class="badge badge-aman">✅ Aman</span>'
+      : '<span class="badge badge-gray">N/A</span>';
+    
+    const statusIQR = cmi.Audit_IQR;
+    document.getElementById('statusIQR').innerHTML = statusIQR === 'Audit'
+      ? '<span class="badge badge-audit">⚠️ Perlu Audit</span>'
+      : statusIQR === 'Aman'
+      ? '<span class="badge badge-aman">✅ Aman</span>'
+      : '<span class="badge badge-gray">N/A</span>';
+    
+    document.getElementById('totalKasus').textContent = fmtNum(stats.total_kasus);
+    document.getElementById('avgLOS').textContent = stats.avg_alos ? stats.avg_alos.toFixed(1) + ' hari' : '—';
+    
+    document.getElementById('statTarifINA').textContent = fmtCurrencyShort(stats.total_tarif_inacbg);
+    document.getElementById('statTarifRS').textContent = fmtCurrencyShort(stats.total_tarif_rs);
+    const sel = stats.selisih_tarif || 0;
+    document.getElementById('statSelisih').textContent = (sel >= 0 ? '+' : '') + fmtCurrencyShort(sel);
+    
+    const deskUrl = `/desk-review/${KODE_RS}`;
+    document.getElementById('btnDeskReview').href = deskUrl;
+    document.getElementById('btnStartDesk').href = deskUrl;
+    
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('pageContent').style.display = 'block';
+    
+  } catch(err) {
+    document.getElementById('loadingState').innerHTML = `<div class="empty-state">
+      <div class="empty-state-icon">❌</div>
+      <div class="empty-state-title">Gagal memuat: ${err.message}</div>
+    </div>`;
+  }
+}
+
+init();
+</script>
+{% endblock %}

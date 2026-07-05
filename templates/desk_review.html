@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}Desk Review - Audit Koding{% endblock %}
+
+{% block breadcrumb %}
+<a href="/">🏠</a>
+<span class="sep">/</span>
+<a href="/hospitals">RS Sampel</a>
+<span class="sep">/</span>
+<span class="current" id="bcRS">Desk Review</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="page-title" id="pageTitle">🔍 Desk Review</h1>
+      <p class="page-subtitle" id="pageSubtitle">Rule-Based Coding Validation per Kasus</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+      <div id="cochranBadge" class="badge badge-purple" style="display:none; padding:8px 12px; font-size:13px; align-items:center; gap:6px;">
+        <span>📊 Sampel Cochran:</span>
+        <strong id="cochranValue">—</strong>
+      </div>
+      <button id="btnValidateAll" class="btn btn-primary" onclick="runBatchValidation()">
+        ⚡ Validasi Semua Sampel
+      </button>
+      <a href="/hospitals/{{ kode_rs }}" class="btn btn-secondary">← Kembali</a>
+    </div>
+  </div>
+</div>
+
+<!-- RS Info Card -->
+<div id="rsInfoCard" class="card mb-4" style="display:none;">
+  <div class="flex gap-4 flex-wrap">
+    <div style="flex:1; min-width:200px;">
+      <div class="text-xs text-muted mb-1">Kode RS</div>
+      <div class="td-mono" id="infoKodeRS">—</div>
+    </div>
+    <div style="flex:2; min-width:200px;">
+      <div class="text-xs text-muted mb-1">Nama RS</div>
+      <div style="font-weight:600;" id="infoNamaRS">—</div>
+    </div>
+    <div style="flex:1; min-width:100px;">
+      <div class="text-xs text-muted mb-1">Kelas</div>
+      <div id="infoKelas">—</div>
+    </div>
+    <div style="flex:1; min-width:120px;">
+      <div class="text-xs text-muted mb-1">Status CMI (2SD)</div>
+      <div id="infoCMIStatus">—</div>
+    </div>
+    <div style="flex:1; min-width:100px;">
+      <div class="text-xs text-muted mb-1">Total Kasus</div>
+      <div style="font-weight:700; font-size:18px;" id="infoTotalKasus">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Batch Validation Result Summary -->
+<div id="batchSummary" class="stat-grid" style="display:none; grid-template-columns:repeat(4,1fr);">
+  <div class="stat-card blue">
+    <div class="stat-icon">📁</div>
+    <div class="stat-value" id="bsTotal">—</div>
+    <div class="stat-label">Total Kasus</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">⚠️</div>
+    <div class="stat-value" id="bsTemuan">—</div>
+    <div class="stat-label">Kasus dengan Temuan</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">🏥</div>
+    <div class="stat-value" id="bsOnsite">—</div>
+    <div class="stat-label">Rekomendasi On-Site</div>
+  </div>
+  <div class="stat-card emerald">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value" id="bsAman">—</div>
+    <div class="stat-label">Kasus Aman</div>
+  </div>
+</div>
+
+<!-- Search & Filter -->
+<div class="search-bar mb-3">
+  <div class="search-input-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" class="input-field" placeholder="Cari SEP, kode INACBG, diagnosis...">
+  </div>
+  <select id="filterTemuan" class="select-field">
+    <option value="">Semua Kasus</option>
+    <option value="high">Ada Temuan High</option>
+    <option value="medium">Ada Temuan Medium</option>
+    <option value="onsite">Rekomendasi On-Site</option>
+    <option value="aman">Tanpa Temuan</option>
+  </select>
+  <span class="text-secondary text-sm" id="filterInfo">— kasus ditampilkan</span>
+</div>
+
+<!-- Cases Table -->
+<div class="card" style="padding:0; overflow:hidden;">
+  <div class="table-container" style="border:none;">
+    <table id="casesTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nomor SEP</th>
+          <th>INA-CBG</th>
+          <th>Diagnosa Utama</th>
+          <th>ALOS</th>
+          <th>Tarif INA-CBG</th>
+          <th>Tarif RS</th>
+          <th>Temuan Rule</th>
+          <th>Rekomendasi</th>
+          <th>KKR</th>
+        </tr>
+      </thead>
+      <tbody id="casesBody">
+        <tr><td colspan="10" class="text-center" style="padding:40px;">
+          <div class="spinner-sm"></div> Memuat kasus...
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pagination -->
+<div class="pagination" id="paginationBar" style="display:none;">
+  <div class="text-secondary text-sm" id="paginationInfo">—</div>
+  <div class="pagination-controls" id="paginationControls"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const KODE_RS = '{{ kode_rs }}';
+let currentPage = 1;
+const PER_PAGE = 50;
+let batchResults = null;
+let allCasesLocal = [];
+
+// Load RS info
+async function loadRSInfo() {
+  const res = await fetch(`/api/hospitals/${KODE_RS}`);
+  const json = await res.json();
+  if (!json.success) return;
+  const d = json.data;
+  
+  document.getElementById('rsInfoCard').style.display = 'block';
+  document.getElementById('infoKodeRS').textContent = KODE_RS;
+  document.getElementById('infoNamaRS').textContent = d.info.nama_rs || '-';
+  document.getElementById('infoTotalKasus').textContent = fmtNum(d.stats.total_kasus);
+  document.getElementById('infoKelas').innerHTML = `<span class="badge badge-blue">Kelas ${d.info.kelas || '?'}</span>`;
+  document.getElementById('pageTitle').textContent = `🔍 Desk Review - ${d.info.nama_rs || KODE_RS}`;
+  document.getElementById('bcRS').textContent = d.info.nama_rs || KODE_RS;
+  
+  const auditStatus = d.cmi_info.Audit_2SD;
+  document.getElementById('infoCMIStatus').innerHTML = auditStatus === 'Audit' 
+    ? '<span class="badge badge-audit">⚠️ Perlu Audit</span>'
+    : auditStatus === 'Aman'
+    ? '<span class="badge badge-aman">✅ Aman</span>'
+    : '<span class="badge badge-gray">N/A</span>';
+}
+
+// Load cases (paginated)
+async function loadCases(page = 1) {
+  const search = document.getElementById('searchInput').value;
+  const url = `/api/cases/${KODE_RS}?page=${page}&per_page=${PER_PAGE}&search=${encodeURIComponent(search)}`;
+  
+  const res = await fetch(url);
+  const json = await res.json();
+  if (!json.success) return;
+  
+  const d = json.data;
+  currentPage = page;
+  
+  // Show Cochran Info
+  if (d.cochran_info) {
+    const ci = d.cochran_info;
+    document.getElementById('cochranBadge').style.display = 'flex';
+    document.getElementById('cochranBadge').title = ci.formula;
+    document.getElementById('cochranValue').textContent = `${ci.n_sample} dari ${ci.N} (${ci.percentage}%)`;
+  }
+  
+  renderCasesTable(d.cases, d.total);
+  renderPagination(d.total, d.page, d.total_pages);
+}
+
+function renderCasesTable(cases, total) {
+  document.getElementById('filterInfo').textContent = `${fmtNum(total)} kasus ditampilkan`;
+  
+  const tbody = document.getElementById('casesBody');
+  if (cases.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state">
+      <div class="empty-state-icon">📭</div>
+      <div class="empty-state-title">Tidak ada kasus</div>
+    </div></td></tr>`;
+    return;
+  }
+  
+  const startIdx = (currentPage - 1) * PER_PAGE;
+  
+  tbody.innerHTML = cases.map((c, i) => {
+    // Check batch results for this SEP
+    let batchResult = null;
+    if (batchResults) {
+      batchResult = batchResults.results.find(r => r.sep === c.sep);
+    }
+    
+    const mainDiag = c.diaglist ? c.diaglist.split(';')[0] : '-';
+    const selisih = (c.tarif_rs || 0) - (c.tarif_inacbg || 0);
+    
+    let tmuanCell = '<span class="badge badge-gray text-xs">Belum divalidasi</span>';
+    let rekomCell = '<span class="badge badge-gray text-xs">—</span>';
+    
+    if (batchResult) {
+      const cnt = batchResult.triggered_count;
+      if (cnt === 0) {
+        tmuanCell = '<span class="badge badge-aman">✅ Sesuai Aturan</span>';
+      } else {
+        const color = batchResult.has_high ? 'badge-audit' : 'badge-monitoring';
+        tmuanCell = `<span class="badge ${color}">⚠️ ${cnt} temuan</span>`;
+      }
+      
+      const rek = batchResult.rekomendasi;
+      if (rek.includes('On-Site')) rekomCell = '<span class="badge badge-onsite">🏥 On-Site</span>';
+      else if (rek.includes('Monitoring')) rekomCell = '<span class="badge badge-monitoring">👁️ Monitoring</span>';
+      else if (cnt === 0) rekomCell = '<span class="badge badge-aman">✅ Aman</span>';
+    }
+    
+    return `
+    <tr>
+      <td class="td-muted text-sm">${startIdx + i + 1}</td>
+      <td>
+        <a href="/kkr-dr01/${encodeURIComponent(c.sep)}" class="td-mono" style="text-decoration:none; color:var(--accent-cyan);" title="${c.sep}">
+          ${c.sep ? c.sep.substring(0,20) + '...' : '-'}
+        </a>
+      </td>
+      <td>
+        <div class="text-mono" style="font-size:12px;">${c.inacbg || '-'}</div>
+        <div class="text-xs text-muted" style="max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${(c.deskripsi_inacbg || '').substring(0,30)}...</div>
+      </td>
+      <td>
+        <span class="code-chip">${mainDiag}</span>
+      </td>
+      <td class="text-center">${c.alos || '-'} hr</td>
+      <td class="text-sm">${fmtCurrency(c.tarif_inacbg)}</td>
+      <td class="text-sm ${selisih > 0 ? 'text-danger' : 'text-success'}">${fmtCurrency(c.tarif_rs)}</td>
+      <td>${tmuanCell}</td>
+      <td>${rekomCell}</td>
+      <td>
+        <div class="flex gap-1">
+          <a href="/kkr-dr01/${encodeURIComponent(c.sep)}" class="btn btn-primary btn-sm" title="Buka KKR-DR01">📋 DR01</a>
+          <a href="/kkr-os01/${encodeURIComponent(c.sep)}" class="btn btn-secondary btn-sm" title="Buka KKR-OS01">🏥 OS01</a>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPagination(total, page, totalPages) {
+  const bar = document.getElementById('paginationBar');
+  const info = document.getElementById('paginationInfo');
+  const ctrl = document.getElementById('paginationControls');
+  
+  bar.style.display = 'flex';
+  const start = (page-1)*PER_PAGE + 1;
+  const end = Math.min(page*PER_PAGE, total);
+  info.textContent = `Menampilkan ${start}–${end} dari ${fmtNum(total)} kasus`;
+  
+  let html = `<button class="page-btn" onclick="loadCases(${page-1})" ${page<=1?'disabled':''}>◀</button>`;
+  
+  const maxPages = Math.min(totalPages, 7);
+  let startPage = Math.max(1, page - 3);
+  let endPage = Math.min(totalPages, startPage + maxPages - 1);
+  
+  for (let p = startPage; p <= endPage; p++) {
+    html += `<button class="page-btn ${p===page?'active':''}" onclick="loadCases(${p})">${p}</button>`;
+  }
+  
+  html += `<button class="page-btn" onclick="loadCases(${page+1})" ${page>=totalPages?'disabled':''}>▶</button>`;
+  ctrl.innerHTML = html;
+}
+
+async function runBatchValidation() {
+  const btn = document.getElementById('btnValidateAll');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> Memvalidasi...';
+  
+  try {
+    const res = await fetch(`/api/validate-batch/${KODE_RS}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    
+    batchResults = json.data;
+    const s = batchResults.summary;
+    const ci = batchResults.cochran_info;
+    
+    document.getElementById('batchSummary').style.display = 'grid';
+    document.getElementById('bsTotal').textContent = fmtNum(s.total_kasus);
+    document.getElementById('bsTemuan').textContent = fmtNum(s.kasus_dengan_temuan);
+    document.getElementById('bsOnsite').textContent = fmtNum(s.rekomendasi_onsite);
+    document.getElementById('bsAman').textContent = fmtNum(s.kasus_aman);
+    
+    if (ci) {
+      document.getElementById('cochranBadge').style.display = 'flex';
+      document.getElementById('cochranValue').textContent = `${ci.n_sample} dari ${ci.N} (${ci.percentage}%)`;
+    }
+    
+    // Re-render current page
+    loadCases(currentPage);
+    
+    showToast(`✅ Validasi selesai: ${s.kasus_dengan_temuan} kasus sampel memiliki temuan`, 'success');
+  } catch(err) {
+    showToast('Gagal validasi: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '⚡ Validasi Semua Sampel';
+  }
+}
+
+// Search debounce
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadCases(1), 400);
+});
+
+// Init
+loadRSInfo();
+loadCases(1);
+</script>
+{% endblock %}

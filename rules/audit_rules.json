@@ -1,0 +1,563 @@
+{
+  "rules": [
+    {
+      "rule_id": "AUDIT-COD-01",
+      "nama_aturan": "Typhoid pada Kehamilan",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["A01.0"],
+        "diag_b": ["O98", "O98.8"]
+      },
+      "pesan_validasi": "Jika tidak terdapat penyulit lain, gunakan O98.8 sebagai Diagnosis Utama dan A01.0 sebagai Diagnosis Sekunder.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-03",
+      "nama_aturan": "Batu Saluran Kemih dengan ISK",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["N20", "N21", "N22", "N23"],
+        "diag_b": ["N39.0"]
+      },
+      "pesan_validasi": "ISK (N39.0) sudah termasuk dalam Batu Saluran Kemih (N20–N23) sehingga tidak dikodekan sebagai diagnosis sekunder.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan kaidah Includes/Excludes."
+    },
+    {
+      "rule_id": "AUDIT-COD-05",
+      "nama_aturan": "Cholelithiasis dengan Obstruksi/Cholangitis",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["K80"],
+        "diag_b": ["K83.0", "K83.1"]
+      },
+      "pesan_validasi": "Gunakan Combination Code K80.3/K80.4, bukan kode terpisah.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-08",
+      "nama_aturan": "Diabetes Melitus dengan Ulkus/Gangren",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["E10", "E11", "E14"],
+        "diag_b": ["R02", "L97"]
+      },
+      "pesan_validasi": "Gunakan Combination Code E1x.5, gangren tidak dikodekan terpisah.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-10",
+      "nama_aturan": "HIV dengan Infeksi Sekunder Multipel",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["B20"],
+        "diag_b": ["B20", "B21", "B22", "B23", "B24"],
+        "multi_secondary": true,
+        "min_secondary": 2
+      },
+      "pesan_validasi": "Gunakan B20.7 sebagai Diagnosis Utama jika terdapat lebih dari satu infeksi oportunistik.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-16",
+      "nama_aturan": "Hipertensi dengan Gagal Jantung",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["I10"],
+        "diag_b": ["I50"]
+      },
+      "pesan_validasi": "Gunakan I11.0, bukan I10 dan I50 secara terpisah.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-17",
+      "nama_aturan": "Hipertensi dengan CKD",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["I10"],
+        "diag_b": ["N18"]
+      },
+      "pesan_validasi": "Gunakan I12.- sesuai derajat CKD.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-18",
+      "nama_aturan": "Hipertensi + CKD + CHF",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_triple",
+        "diag_a": ["I10"],
+        "diag_b": ["N18"],
+        "diag_c": ["I50"]
+      },
+      "pesan_validasi": "Gunakan I13.2 sesuai kaidah Combination Code (Hipertensi + CKD + CHF).",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-19",
+      "nama_aturan": "CHF dengan Edema Paru",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "Medium",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["I50"],
+        "diag_b": ["J81"]
+      },
+      "pesan_validasi": "Gunakan I50.1, edema paru tidak dikodekan terpisah.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-20",
+      "nama_aturan": "PPOK dengan Pneumonia",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["J44.9", "J44"],
+        "diag_b": ["J18", "J18.0", "J18.1", "J18.9"]
+      },
+      "pesan_validasi": "Gunakan J44.0, kecuali PPOK eksaserbasi akut.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-33",
+      "nama_aturan": "Anemia Defisiensi Besi pada Kehamilan",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "Medium",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["D50"],
+        "diag_b": ["O99.0"]
+      },
+      "pesan_validasi": "Gunakan O99.0 sebagai Diagnosis Utama dan D50.- sebagai Diagnosis Sekunder.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan Combination Code."
+    },
+    {
+      "rule_id": "AUDIT-COD-44",
+      "nama_aturan": "Tuberkulosis Paru dengan Hemoptisis",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "Medium",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["A15", "A15.2", "A16", "A16.2"],
+        "diag_b": ["R04.2"]
+      },
+      "pesan_validasi": "Hemoptisis merupakan manifestasi Tuberkulosis Paru dan umumnya tidak dikodekan terpisah.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan kaidah pengodean."
+    },
+    {
+      "rule_id": "AUDIT-COD-48",
+      "nama_aturan": "Stroke dengan Hemiplegia",
+      "kategori": "combination_code",
+      "ptd": "1/2",
+      "severity": "Medium",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["I60", "I61", "I62", "I63", "I64"],
+        "diag_b": ["G81"]
+      },
+      "pesan_validasi": "Hemiplegia fase akut umumnya tidak dikodekan sebagai diagnosis sekunder terpisah.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan kaidah pengodean."
+    },
+    {
+      "rule_id": "AUDIT-COD-09",
+      "nama_aturan": "DM Neuropati",
+      "kategori": "dagger_asterisk",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["E10", "E11", "E14"],
+        "diag_b": ["G63.2"]
+      },
+      "pesan_validasi": "Gunakan E1x.4† sebagai Diagnosis Utama dan G63.2* sebagai Diagnosis Sekunder.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan sistem Dagger & Asterisk."
+    },
+    {
+      "rule_id": "AUDIT-COD-22",
+      "nama_aturan": "Typhoid dengan Pneumonia",
+      "kategori": "dagger_asterisk",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["A01.0"],
+        "diag_b": ["J18", "J18.0", "J18.1", "J18.9"]
+      },
+      "pesan_validasi": "Gunakan A01.0† dan J17.0*.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan sistem Dagger & Asterisk."
+    },
+    {
+      "rule_id": "AUDIT-COD-52",
+      "nama_aturan": "Measles dengan Pneumonia",
+      "kategori": "dagger_asterisk",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["B05"],
+        "diag_b": ["J18", "J18.0", "J18.1", "J18.9"]
+      },
+      "pesan_validasi": "Gunakan B05.2† dan J17.1*.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi penerapan sistem Dagger & Asterisk."
+    },
+    {
+      "rule_id": "AUDIT-COD-21",
+      "nama_aturan": "Typhoid dengan Gastroenteritis",
+      "kategori": "includes_excludes",
+      "ptd": "1/2",
+      "severity": "Medium",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["A01.0"],
+        "diag_b": ["A09"]
+      },
+      "pesan_validasi": "Gastroenteritis (A09) tidak dikodekan jika diagnosis Typhoid Fever telah ditegakkan.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kaidah Excludes."
+    },
+    {
+      "rule_id": "AUDIT-COD-23",
+      "nama_aturan": "Oligohidramnion dengan KPD",
+      "kategori": "includes_excludes",
+      "ptd": "1",
+      "severity": "Medium",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["O41.0"],
+        "diag_b": ["O42"]
+      },
+      "pesan_validasi": "Gunakan O42.-, O41.0 tidak dikodekan terpisah.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01."
+    },
+    {
+      "rule_id": "AUDIT-COD-24",
+      "nama_aturan": "Syok Hipovolemik akibat Trauma",
+      "kategori": "includes_excludes",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination_prefix",
+        "diag_a": ["R57.1"],
+        "diag_b_prefix": ["S", "T"]
+      },
+      "pesan_validasi": "Gunakan T79.4 Traumatic Shock, bukan R57.1.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01."
+    },
+    {
+      "rule_id": "AUDIT-COD-41",
+      "nama_aturan": "Kompresi Otak pada Cedera Kepala",
+      "kategori": "includes_excludes",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination_prefix",
+        "diag_a": ["G93.5"],
+        "diag_b_prefix": ["S06"]
+      },
+      "pesan_validasi": "G93.5 tidak digunakan pada kompresi otak traumatik.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01."
+    },
+    {
+      "rule_id": "AUDIT-COD-50",
+      "nama_aturan": "Pneumonia pada Tuberkulosis Paru",
+      "kategori": "includes_excludes",
+      "ptd": "1/2",
+      "severity": "Medium",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["A15.2", "A16.2"],
+        "diag_b": ["J18", "J18.0", "J18.1", "J18.9"]
+      },
+      "pesan_validasi": "Pneumonia telah termasuk dalam kode Tuberculous Pneumonia.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01."
+    },
+    {
+      "rule_id": "AUDIT-COD-51",
+      "nama_aturan": "Dengue Fever dan DHF",
+      "kategori": "includes_excludes",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_combination",
+        "diag_a": ["A90"],
+        "diag_b": ["A91"]
+      },
+      "pesan_validasi": "A90 dan A91 tidak boleh dikodekan bersamaan.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01."
+    },
+    {
+      "rule_id": "AUDIT-COD-58",
+      "nama_aturan": "Malunion dengan Fraktur Akut",
+      "kategori": "includes_excludes",
+      "ptd": "1/2",
+      "severity": "Medium",
+      "condition": {
+        "type": "diag_combination_prefix",
+        "diag_a": ["M84.0"],
+        "diag_b_prefix": ["S"]
+      },
+      "pesan_validasi": "Fraktur akut tidak dikodekan pada episode Malunion/Non-union.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01."
+    },
+    {
+      "rule_id": "AUDIT-COD-40",
+      "nama_aturan": "Manifestation tanpa Underlying Cause",
+      "kategori": "underlying_manifestation",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "manifestation_without_underlying",
+        "manifestation_codes": ["G63.2", "H28.0", "H28.1", "H36.0", "J17.0", "J17.1", "J99.0", "K23.0", "K23.1", "K67.0", "K67.1", "K87.0", "K87.1", "L14", "L45", "L62.0", "L99.0", "M01", "M03", "M07", "M09", "M14", "M36", "M49", "M63.0", "M68.0", "M73.0", "M82.0", "M90.0", "M90.1", "N08.0", "N16.0", "N16.1", "N22.0", "N22.1", "N29.0", "N29.1", "N33.0", "N33.8", "N37.0", "N51.0", "N51.1", "N74.0", "N74.1", "N74.2", "N74.3", "N74.4", "N74.8"]
+      },
+      "pesan_validasi": "Kode Manifestation (*) tidak boleh digunakan tanpa Underlying Cause (†) yang sesuai.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kesesuaian pasangan Underlying Cause–Manifestation."
+    },
+    {
+      "rule_id": "AUDIT-COD-59",
+      "nama_aturan": "Underlying Cause tidak sesuai dengan Manifestation",
+      "kategori": "underlying_manifestation",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "underlying_without_manifestation",
+        "dagger_codes": ["A01.0†", "E10.4†", "E11.4†", "B05.2†"]
+      },
+      "pesan_validasi": "Underlying Cause (†) harus dipasangkan dengan Manifestation (*) sesuai ketentuan ICD-10 dan ICS.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi pasangan kode."
+    },
+    {
+      "rule_id": "AUDIT-COD-07",
+      "nama_aturan": "Sectio Caesarea tanpa Prosedur SC",
+      "kategori": "procedure_validation",
+      "ptd": "1",
+      "severity": "High",
+      "condition": {
+        "type": "diag_without_proc",
+        "diag": ["O82", "O82.0", "O82.1", "O82.2", "O82.8", "O82.9"],
+        "required_proc_prefix": ["74.0", "74.1", "74.2", "74.4", "74.9"]
+      },
+      "pesan_validasi": "Diagnosis Sectio Caesarea harus didukung prosedur Sectio Caesarea sesuai ICD-9-CM.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kesesuaian diagnosis dengan prosedur."
+    },
+    {
+      "rule_id": "AUDIT-COD-37",
+      "nama_aturan": "Hemodialisis tanpa Diagnosis Gagal Ginjal",
+      "kategori": "procedure_validation",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "proc_without_diag",
+        "proc": ["39.95"],
+        "required_diag": ["N17", "N18", "N19"]
+      },
+      "pesan_validasi": "Hemodialisis harus didukung diagnosis yang sesuai sebagai indikasi tindakan.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kesesuaian prosedur."
+    },
+    {
+      "rule_id": "AUDIT-COD-39",
+      "nama_aturan": "Ventilator Mekanik tanpa Gagal Napas",
+      "kategori": "procedure_validation",
+      "ptd": "1",
+      "severity": "High",
+      "condition": {
+        "type": "proc_without_diag",
+        "proc": ["96.70", "96.71", "96.72"],
+        "required_diag": ["J96", "J96.0", "J96.1", "J96.9"]
+      },
+      "pesan_validasi": "Penggunaan ventilator harus didukung diagnosis atau kondisi klinis yang sesuai.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kesesuaian prosedur."
+    },
+    {
+      "rule_id": "AUDIT-COD-62",
+      "nama_aturan": "Appendektomi tanpa Diagnosis Apendisitis",
+      "kategori": "procedure_validation",
+      "ptd": "1",
+      "severity": "High",
+      "condition": {
+        "type": "proc_without_diag",
+        "proc": ["47.0", "47.01", "47.09", "47.1", "47.11", "47.19", "47.2", "47.9", "47.91", "47.92", "47.99"],
+        "required_diag": ["K35", "K35.0", "K35.1", "K35.2", "K35.3", "K35.8", "K35.9", "K36", "K37"]
+      },
+      "pesan_validasi": "Appendektomi harus didukung diagnosis apendisitis yang sesuai.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kesesuaian prosedur."
+    },
+    {
+      "rule_id": "AUDIT-COD-67",
+      "nama_aturan": "Kateterisasi Jantung tanpa Penyakit Jantung",
+      "kategori": "procedure_validation",
+      "ptd": "1/2",
+      "severity": "Medium",
+      "condition": {
+        "type": "proc_without_diag_prefix",
+        "proc_prefix": ["37.21", "37.22", "37.23"],
+        "required_diag_prefix": ["I20", "I21", "I22", "I23", "I24", "I25", "I35", "I36", "I37", "I38", "I39"]
+      },
+      "pesan_validasi": "Kateterisasi jantung harus didukung diagnosis yang sesuai.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kesesuaian prosedur."
+    },
+    {
+      "rule_id": "AUDIT-COD-68",
+      "nama_aturan": "Kemoterapi tanpa Diagnosis Keganasan",
+      "kategori": "procedure_validation",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "proc_without_diag_prefix",
+        "proc_prefix": ["99.25", "99.28"],
+        "required_diag_prefix": ["C", "D0"]
+      },
+      "pesan_validasi": "Kemoterapi harus didukung diagnosis keganasan yang sesuai.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kesesuaian prosedur."
+    },
+    {
+      "rule_id": "AUDIT-COD-06",
+      "nama_aturan": "Persalinan Normal dengan Episiotomi",
+      "kategori": "unbundling",
+      "ptd": "1",
+      "severity": "Medium",
+      "condition": {
+        "type": "diag_with_proc",
+        "diag": ["O80", "O80.0", "O80.1", "O80.8", "O80.9"],
+        "proc": ["73.6"]
+      },
+      "pesan_validasi": "Episiotomi merupakan bagian integral persalinan normal.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan evaluasi kaidah Unbundling."
+    },
+    {
+      "rule_id": "AUDIT-COD-25",
+      "nama_aturan": "Debridement sebagai Bagian Operasi Utama",
+      "kategori": "unbundling",
+      "ptd": "1",
+      "severity": "Medium",
+      "condition": {
+        "type": "unbundling_check",
+        "proc_a": ["86.22", "86.28"],
+        "proc_b_prefix": ["76", "77", "78", "79"]
+      },
+      "pesan_validasi": "Debridement tidak dilaporkan terpisah apabila merupakan bagian dari tindakan utama.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01."
+    },
+    {
+      "rule_id": "AUDIT-COD-34",
+      "nama_aturan": "Transfusi Darah sebagai Bagian Operasi",
+      "kategori": "unbundling",
+      "ptd": "1",
+      "severity": "Medium",
+      "condition": {
+        "type": "proc_combination",
+        "proc_a": ["99.00", "99.01", "99.02", "99.03", "99.04"],
+        "proc_b_prefix": ["01", "02", "03", "04", "05", "06", "07", "08"]
+      },
+      "pesan_validasi": "Transfusi darah tidak dilaporkan terpisah apabila merupakan bagian dari paket tindakan.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01."
+    },
+    {
+      "rule_id": "AUDIT-COD-60",
+      "nama_aturan": "Sepsis tanpa Bukti Infeksi",
+      "kategori": "medical_evidence",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_without_supporting_diag",
+        "diag": ["A41", "A41.0", "A41.1", "A41.2", "A41.3", "A41.4", "A41.5", "A41.8", "A41.9"],
+        "supporting_diag_prefix": ["A", "B0", "B1", "B2", "J", "N", "K"]
+      },
+      "pesan_validasi": "Diagnosis Sepsis harus didukung fokus infeksi atau bukti medis yang sesuai.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan pertimbangkan On-Site Audit."
+    },
+    {
+      "rule_id": "AUDIT-COD-64",
+      "nama_aturan": "Acute Respiratory Failure tanpa Bukti Klinis",
+      "kategori": "medical_evidence",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_check_high_rw",
+        "diag": ["J96", "J96.0", "J96.1", "J96.9"],
+        "min_rw_threshold": 5.0
+      },
+      "pesan_validasi": "Acute Respiratory Failure harus didukung bukti klinis yang memadai.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan pertimbangkan On-Site Audit."
+    },
+    {
+      "rule_id": "AUDIT-COD-65",
+      "nama_aturan": "Acute Kidney Injury tanpa Bukti Pendukung",
+      "kategori": "medical_evidence",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "diag_check",
+        "diag": ["N17", "N17.0", "N17.1", "N17.2", "N17.8", "N17.9"]
+      },
+      "pesan_validasi": "Acute Kidney Injury harus didukung bukti medis yang sesuai.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan pertimbangkan On-Site Audit."
+    },
+    {
+      "rule_id": "AUDIT-COD-63",
+      "nama_aturan": "Diagnosis Tidak Sesuai Jenis Kelamin",
+      "kategori": "administrative_validation",
+      "ptd": "1/2",
+      "severity": "High",
+      "condition": {
+        "type": "gender_mismatch",
+        "male_only_diag_prefix": ["N40", "N41", "N42", "N43", "N44", "N45", "N46", "N47", "N48", "N49"],
+        "female_only_diag_prefix": ["N70", "N71", "N72", "N73", "N74", "N75", "N76", "N77", "N80", "N81", "N82", "N83", "N84", "N85", "N86", "N87", "N88", "N89", "N90", "N91", "N92", "N93", "N94", "N95", "N96", "N97", "N98", "O"]
+      },
+      "pesan_validasi": "Lakukan verifikasi kembali terhadap diagnosis dan identitas pasien.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan lakukan klarifikasi bila diperlukan."
+    },
+    {
+      "rule_id": "AUDIT-COD-69",
+      "nama_aturan": "Diagnosis Tidak Sesuai Kelompok Umur",
+      "kategori": "age_validation",
+      "ptd": "1/2",
+      "severity": "Medium",
+      "condition": {
+        "type": "age_check",
+        "pediatric_only_prefix": ["P", "Q"],
+        "adult_only_prefix": ["N40", "I20", "I21"]
+      },
+      "pesan_validasi": "Verifikasi kembali ketepatan pengodean berdasarkan usia pasien.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan lakukan analisis reviewer."
+    },
+    {
+      "rule_id": "AUDIT-COD-71",
+      "nama_aturan": "Length of Stay (LOS) Tidak Wajar",
+      "kategori": "los_validation",
+      "ptd": "1",
+      "severity": "Medium",
+      "condition": {
+        "type": "los_outlier",
+        "los_threshold_multiplier": 3.0
+      },
+      "pesan_validasi": "Evaluasi kewajaran LOS berdasarkan diagnosis dan tindakan yang diberikan.",
+      "rekomendasi_reviewer": "Dokumentasikan pada KKR-DR01 dan pertimbangkan On-Site Audit bila diperlukan."
+    }
+  ]
+}

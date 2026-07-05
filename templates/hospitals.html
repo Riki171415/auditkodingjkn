@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Rumah Sakit Sampel Audit{% endblock %}
+
+{% block breadcrumb %}
+<a href="/">🏠 Home</a>
+<span class="sep">/</span>
+<span class="current">Rumah Sakit Sampel</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🏨 Rumah Sakit Sampel Audit 2025</h1>
+  <p class="page-subtitle">Daftar RS yang termasuk dalam sampel audit berdasarkan pendekatan Risk-Based Audit</p>
+</div>
+
+<!-- Search & Filter -->
+<div class="search-bar mb-4">
+  <div class="search-input-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" class="input-field" placeholder="Cari nama RS, kode RS...">
+  </div>
+  <select id="filterKelas" class="select-field">
+    <option value="">Semua Kelas</option>
+    <option value="A">Kelas A</option>
+    <option value="B">Kelas B</option>
+    <option value="C">Kelas C</option>
+    <option value="D">Kelas D</option>
+  </select>
+  <select id="filterPemilik" class="select-field">
+    <option value="">Semua Pemilik</option>
+    <option value="P">Pemerintah (P)</option>
+    <option value="S">Swasta (S)</option>
+  </select>
+  <select id="filterAudit" class="select-field">
+    <option value="">Status Audit (2SD)</option>
+    <option value="Audit">Perlu Audit</option>
+    <option value="Aman">Aman</option>
+  </select>
+  <select id="filterRegional" class="select-field">
+    <option value="">Semua Regional</option>
+    <option value="reg1">Regional 1</option>
+    <option value="reg2">Regional 2</option>
+    <option value="reg3">Regional 3</option>
+    <option value="reg4">Regional 4</option>
+    <option value="reg5">Regional 5</option>
+  </select>
+</div>
+
+<!-- Summary badges -->
+<div class="flex gap-2 mb-4" id="summaryBadges">
+  <span class="badge badge-blue" id="totalCount">Memuat...</span>
+  <span class="badge badge-audit" id="auditCount">—</span>
+  <span class="badge badge-aman" id="amanCount">—</span>
+</div>
+
+<!-- Hospital Cards/Table -->
+<div class="card" style="padding:0; overflow:hidden;">
+  <div class="table-container" style="border:none;">
+    <table id="hospitalTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Kode RS</th>
+          <th>Nama Rumah Sakit</th>
+          <th>Kelas</th>
+          <th>Pemilik</th>
+          <th>Regional</th>
+          <th>Provinsi</th>
+          <th>CMI</th>
+          <th>Status 2SD</th>
+          <th>Status IQR</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="hospitalBody">
+        <tr><td colspan="11" class="text-center" style="padding:40px;">
+          <div class="spinner-sm"></div> Memuat data rumah sakit...
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allHospitals = [];
+
+async function loadHospitals() {
+  try {
+    const res = await fetch('/api/hospitals');
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    
+    allHospitals = json.data;
+    renderTable(allHospitals);
+  } catch(err) {
+    document.getElementById('hospitalBody').innerHTML = `<tr><td colspan="11" class="text-center text-danger">Gagal memuat: ${err.message}</td></tr>`;
+  }
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('hospitalBody');
+  const auditCount = data.filter(h => h.Audit_2SD === 'Audit').length;
+  const amanCount = data.filter(h => h.Audit_2SD === 'Aman').length;
+  
+  document.getElementById('totalCount').textContent = `📋 Total: ${data.length} RS`;
+  document.getElementById('auditCount').textContent = `⚠️ Perlu Audit: ${auditCount} RS`;
+  document.getElementById('amanCount').textContent = `✅ Aman: ${amanCount} RS`;
+  
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state">
+      <div class="empty-state-icon">🔍</div>
+      <div class="empty-state-title">Tidak ada data yang cocok</div>
+    </div></td></tr>`;
+    return;
+  }
+  
+  tbody.innerHTML = data.map((rs, i) => `
+    <tr>
+      <td class="td-muted">${i+1}</td>
+      <td class="td-mono">${rs.kode_rs}</td>
+      <td>
+        <div style="font-weight:600; max-width:220px;">${rs.nama_rs || '-'}</div>
+      </td>
+      <td><span class="badge ${rs.kelas === 'A' ? 'badge-audit' : rs.kelas === 'B' ? 'badge-blue' : 'badge-gray'}">${rs.kelas || '-'}</span></td>
+      <td>
+        <span class="badge ${rs.pemilik === 'P' ? 'badge-blue' : 'badge-gray'}">
+          ${rs.pemilik === 'P' ? '🏛️ Pemerintah' : '🏢 Swasta'}
+        </span>
+      </td>
+      <td>${(rs.regional || '').toUpperCase()}</td>
+      <td class="td-muted text-sm">${rs.nama_prop || '-'}</td>
+      <td>
+        <span class="text-mono" style="font-size:12px;">${rs.cmi ? rs.cmi.toFixed(4) : 'N/A'}</span>
+      </td>
+      <td>
+        ${rs.Audit_2SD === 'Audit' 
+          ? '<span class="badge badge-audit">⚠️ Audit</span>' 
+          : rs.Audit_2SD === 'Aman' 
+          ? '<span class="badge badge-aman">✅ Aman</span>'
+          : '<span class="badge badge-gray">N/A</span>'}
+      </td>
+      <td>
+        ${rs.Audit_IQR === 'Audit' 
+          ? '<span class="badge badge-audit">⚠️ Audit</span>' 
+          : rs.Audit_IQR === 'Aman' 
+          ? '<span class="badge badge-aman">✅ Aman</span>'
+          : '<span class="badge badge-gray">N/A</span>'}
+      </td>
+      <td>
+        <div class="flex gap-2">
+          <a href="/hospitals/${rs.kode_rs}" class="btn btn-secondary btn-sm">📊 Detail</a>
+          <a href="/desk-review/${rs.kode_rs}" class="btn btn-primary btn-sm">🔍 Desk Review</a>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function applyFilters() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const kelas = document.getElementById('filterKelas').value;
+  const pemilik = document.getElementById('filterPemilik').value;
+  const audit = document.getElementById('filterAudit').value;
+  const regional = document.getElementById('filterRegional').value;
+  
+  const filtered = allHospitals.filter(rs => {
+    const nameMatch = !search || (rs.nama_rs || '').toLowerCase().includes(search) || String(rs.kode_rs).includes(search);
+    const kelasMatch = !kelas || rs.kelas === kelas;
+    const pemilikMatch = !pemilik || rs.pemilik === pemilik;
+    const auditMatch = !audit || rs.Audit_2SD === audit;
+    const regionalMatch = !regional || rs.regional === regional;
+    return nameMatch && kelasMatch && pemilikMatch && auditMatch && regionalMatch;
+  });
+  
+  renderTable(filtered);
+}
+
+document.getElementById('searchInput').addEventListener('input', applyFilters);
+document.getElementById('filterKelas').addEventListener('change', applyFilters);
+document.getElementById('filterPemilik').addEventListener('change', applyFilters);
+document.getElementById('filterAudit').addEventListener('change', applyFilters);
+document.getElementById('filterRegional').addEventListener('change', applyFilters);
+
+loadHospitals();
+</script>
+{% endblock %}

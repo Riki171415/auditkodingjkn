@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: audit-koding-2025
+    env: python
+    buildCommand: "pip install -r requirements.txt && python init_db.py"
+    startCommand: "gunicorn app:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+    disk:
+      name: audit-data
+      mountPath: /opt/render/project/src/exports
+      sizeGB: 1
