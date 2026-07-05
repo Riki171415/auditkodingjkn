@@ -135,8 +135,11 @@ export default function KKRForm() {
                 {data.triggered_rules.map((rule, idx) => (
                   <tr key={idx}>
                     <td>{idx + 1}</td>
-                    <td style={{ fontWeight: 600 }}>{rule.rule_name}</td>
-                    <td>{rule.description}</td>
+                    <td style={{ fontWeight: 600 }}>{rule.nama_aturan}</td>
+                    <td>
+                      <div>{rule.pesan_validasi}</div>
+                      {rule.evidence && <div style={{fontSize: 11, color: 'var(--text-muted)', marginTop: 4}}>Bukti: {rule.evidence}</div>}
+                    </td>
                     <td>
                       <span className={`badge ${rule.severity === 'High' ? 'badge-danger' : 'badge-warning'}`}>
                         {rule.severity}
