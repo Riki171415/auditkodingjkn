@@ -8,6 +8,7 @@ import os
 import json
 import math
 import hashlib
+import sqlite3
 
 
 # ============================================================
