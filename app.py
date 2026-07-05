@@ -125,7 +125,7 @@ def api_onsite_list():
                 
         # Attach RS name from dataloader
         from modules.data_loader import get_hospital_list
-        rs_list = {rs['kode_rs']: rs['nama_rs'] for rs in get_hospital_list()}
+        rs_list = {rs['kode_rs']: rs['nama_rs'] for rs in get_hospital_list(sample_only=False)} # Use national list to find name
         for c in onsite_cases:
             c['nama_rs'] = rs_list.get(c['kode_rs'], c['kode_rs'])
             
@@ -133,6 +133,28 @@ def api_onsite_list():
     except Exception as e:
         import traceback
         traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ============================================================
+# API - Reports
+# ============================================================
+
+@app.route('/api/reports/recap-dr')
+def api_reports_recap_dr():
+    try:
+        from modules.db_manager import get_recap_desk_review
+        data = get_recap_desk_review()
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/reports/recap-os')
+def api_reports_recap_os():
+    try:
+        from modules.db_manager import get_recap_onsite
+        data = get_recap_onsite()
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

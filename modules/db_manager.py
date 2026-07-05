@@ -137,5 +137,77 @@ def load_kkr_os01(sep):
         return row_dict
     return None
 
+def get_recap_desk_review():
+    """Get recapitulation of all Desk Reviews joined with case data"""
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT 
+            k.sep, k.kode_rs, k.reviewer_name, k.tindakan_reviewer, k.updated_at,
+            i.nama_rs, i.kelas, i.regional, i.inacbg, i.tarif_inacbg, i.tarif_rs
+        FROM kkr_dr01 k
+        LEFT JOIN individual_data i ON k.sep = i.sep
+    ''')
+    rows = cursor.fetchall()
+    conn.close()
+    
+    recap = []
+    for r in rows:
+        row = dict(r)
+        try:
+            fd = json.loads(row.get('tindakan_reviewer') or '{}')
+        except:
+            fd = {}
+        
+        recap.append({
+            'sep': row['sep'],
+            'kode_rs': row['kode_rs'],
+            'nama_rs': row['nama_rs'],
+            'kelas': row['kelas'],
+            'reviewer_name': row['reviewer_name'],
+            'tanggal': row['updated_at'],
+            'inacbg': row['inacbg'],
+            'tarif_inacbg': row['tarif_inacbg'],
+            'tarif_rs': row['tarif_rs'],
+            'keputusan': fd.get('keputusan', '-'),
+            'rekomendasi_lanjut': fd.get('rekomendasi_lanjut', '-')
+        })
+    return recap
+
+def get_recap_onsite():
+    """Get recapitulation of all On-Site Audits joined with case data"""
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT 
+            k.sep, k.kode_rs, k.reviewer_name, k.form_data_json, k.updated_at,
+            i.nama_rs, i.kelas, i.regional, i.inacbg, i.tarif_inacbg, i.tarif_rs
+        FROM kkr_os01 k
+        LEFT JOIN individual_data i ON k.sep = i.sep
+    ''')
+    rows = cursor.fetchall()
+    conn.close()
+    
+    recap = []
+    for r in rows:
+        row = dict(r)
+        try:
+            fd = json.loads(row.get('form_data_json') or '{}')
+        except:
+            fd = {}
+            
+        recap.append({
+            'sep': row['sep'],
+            'kode_rs': row['kode_rs'],
+            'nama_rs': row['nama_rs'],
+            'reviewer_name': row['reviewer_name'],
+            'tanggal': row['updated_at'],
+            'inacbg': row['inacbg'],
+            'tarif_inacbg': row['tarif_inacbg'],
+            'tarif_rs': row['tarif_rs'],
+            'kesimpulan': fd.get('kesimpulan', '-')
+        })
+    return recap
+
 # Initialize on module import
 init_audit_db()

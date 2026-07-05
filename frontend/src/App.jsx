@@ -6,6 +6,7 @@ import DeskReview from './pages/DeskReview';
 import KKRForm from './pages/KKRForm';
 import OnSiteList from './pages/OnSiteList';
 import KKROSForm from './pages/KKROSForm';
+import Reports from './pages/Reports';
 
 function Sidebar() {
   const location = useLocation();
@@ -68,7 +69,7 @@ function App() {
           <Route path="/kkr-dr01/:sep" element={<KKRForm />} />
           <Route path="/onsite-audit" element={<OnSiteList />} />
           <Route path="/kkr-os01/:sep" element={<KKROSForm />} />
-          <Route path="/laporan" element={<div className="glass-panel fade-in" style={{padding: 24}}><h2>Tahap 5: Rekonsiliasi & Laporan Hasil Audit</h2><p>Mengekspor seluruh Kertas Kerja Reviewer ke format rekapitulasi akhir (Segera hadir...)</p></div>} />
+          <Route path="/laporan" element={<Reports />} />
         </Routes>
       </Layout>
     </BrowserRouter>
