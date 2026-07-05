@@ -73,7 +73,12 @@ def save_kkr_dr01(sep, data):
         'catatan_tambahan': data.get('catatan_tambahan', ''),
         'reviewer_name': data.get('reviewer_name', ''),
         'tanggal_review': data.get('tanggal_review', ''),
-        'ketua_tim_name': data.get('ketua_tim_name', '')
+        'ketua_tim_name': data.get('ketua_tim_name', ''),
+        'knavp_skor': data.get('knavp_skor', 0),
+        'tingkat_risiko': data.get('tingkat_risiko', ''),
+        'keputusan_sistem': data.get('keputusan_sistem', ''),
+        'jumlah_beda_dual_coding': data.get('jumlah_beda_dual_coding', 0),
+        'ccl_label': data.get('ccl_label', '')
     }, ensure_ascii=False)
     
     triggered_rules_json = json.dumps(data.get('triggered_rules', []), ensure_ascii=False)

@@ -139,7 +139,8 @@ def generate_dummy_data():
             reviewer = random.choice(REVIEWER_NAMES)
             tgl      = generate_random_date()
 
-            if len(triggered_rules) == 0 and jumlah_beda_total == 0:
+            keputusan_sistem_val = knavp_result['keputusan_sistem']
+            if 'Tidak perlu tindak lanjut' in keputusan_sistem_val:
                 analisis = ("Berdasarkan hasil validasi otomatis sistem (KNAVP), tidak ditemukan potensi "
                             "ketidaksesuaian koding. Kode INA-CBG dan iDRG juga konsisten. "
                             "Klaim dinilai aman.")
@@ -149,7 +150,7 @@ def generate_dummy_data():
                     f"Berdasarkan hasil validasi KNAVP, terdapat {len(triggered_rules)} rule terindikasi "
                     f"dengan total skor {total_skor}. "
                     f"Terdapat {jumlah_beda_total} perbedaan kode pada dual coding (INA-CBG vs iDRG). "
-                    f"Tingkat risiko: {tingkat}."
+                    f"Tingkat risiko: {tingkat}. Rekomendasi: {keputusan_sistem_val}."
                 )
                 keputusan_reviewer = "Tidak Sesuai (Terindikasi Fraud/Error)"
 

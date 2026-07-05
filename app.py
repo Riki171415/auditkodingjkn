@@ -20,7 +20,7 @@ from data_loader import (
     get_case_by_sep, get_cases_by_rs, get_dashboard_stats,
     get_sampled_cases_by_rs, get_cochran_info, cochran_sample_size
 )
-from rule_engine import validate_case, validate_batch_by_rs, get_validation_summary, determine_recommendation
+from rule_engine import validate_case, validate_batch_by_rs, get_validation_summary, determine_recommendation_knavp
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')
@@ -311,7 +311,6 @@ def api_validate_case(sep):
         # Run rule validation
         triggered_rules = validate_case(case)
         summary = get_validation_summary(triggered_rules)
-        rekomendasi = determine_recommendation(triggered_rules)
 
         # Dual coding discrepancy (per-row comparison INA-CBG vs iDRG)
         dual_coding = check_dual_coding_discrepancy(case)
@@ -322,6 +321,7 @@ def api_validate_case(sep):
             total_skor,
             jumlah_beda_dual_coding=dual_coding['jumlah_beda_total']
         )
+        rekomendasi = knavp['keputusan_sistem']
 
         # Parse diag and proc lists for display
         diag_codes = [c.strip() for c in str(case.get('diaglist', '')).split(';') if c.strip()]
