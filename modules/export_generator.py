@@ -634,7 +634,7 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
     story.append(Spacer(1, 6))
 
     # === Section 3: Diagnosa & Prosedur ===
-    story.append(section_hdr("3.  INPUT DATA KLAIM – DIAGNOSA & PROSEDUR"))
+    story.append(section_hdr("3.  INPUT DATA KLAIM (BERDASARKAN DATA KLAIM DATA CENTER)"))
 
     diag_codes = [c.strip() for c in str(case.get('diaglist', '') or '').split(';') if c.strip()]
     proc_codes = [c.strip() for c in str(case.get('proclist', '') or '').split(';') if c.strip()]
@@ -646,75 +646,60 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
         matches = re.findall(r'[A-Z]\d{2}(?:\.\d+)?', r.get('evidence', ''))
         triggered_set.update(matches)
 
-    max_dx = max(10, len(diag_codes))
-    max_px = max(10, len(proc_codes))
-
+    max_rows = max(10, max(len(diag_codes), len(proc_codes)))
     icd_dict = get_icd_dict()
 
-    dx_rows = [[
-        Paragraph("No.", bold_style), Paragraph("Kode ICD (INA-CBG)", bold_style),
-        Paragraph("Kode iDRG", bold_style)
-    ]]
-    for i in range(max_dx):
-        code = diag_codes[i] if i < len(diag_codes) else ''
-        is_trig = code in triggered_set
-        code_style = ParagraphStyle('CodeTrig', fontName='Helvetica-Bold', fontSize=8,
-                                    textColor=colors.HexColor('#DC2626')) if is_trig else bold_style
+    # Table Header
+    dp_rows = [
+        [Paragraph("No.", bold_style), Paragraph("DIAGNOSA", bold_style), "", Paragraph("PROSEDUR", bold_style), ""],
+        ["", Paragraph("INA-CBG / iDRG<br/>Kode ICD", bold_style), Paragraph("Deskripsi", bold_style), Paragraph("INA-CBG / iDRG<br/>Kode ICD-9-CM", bold_style), Paragraph("Deskripsi", bold_style)]
+    ]
+
+    for i in range(max_rows):
+        d_code = diag_codes[i] if i < len(diag_codes) else ''
+        p_code = proc_codes[i] if i < len(proc_codes) else ''
         
-        desc = f"{code} - {get_icd_desc_robust(code, icd_dict)}" if code else ''
+        d_trig = d_code in triggered_set
+        p_trig = p_code in triggered_set
         
-        dx_rows.append([
+        d_style = ParagraphStyle('CT', fontName='Helvetica-Bold', fontSize=8, textColor=colors.HexColor('#DC2626')) if d_trig else bold_style
+        p_style = ParagraphStyle('CT', fontName='Helvetica-Bold', fontSize=8, textColor=colors.HexColor('#DC2626')) if p_trig else bold_style
+        
+        d_desc = get_icd_desc_robust(d_code, icd_dict) if d_code else '-'
+        p_desc = get_icd_desc_robust(p_code, icd_dict) if p_code else '-'
+        
+        dp_rows.append([
             Paragraph(str(i+1), normal_style),
-            Paragraph(desc, code_style),
-            Paragraph(desc, code_style)
+            Paragraph(d_code or '-', d_style),
+            Paragraph(d_desc, ParagraphStyle('Desc', fontName='Helvetica', fontSize=7, leading=8)),
+            Paragraph(p_code or '-', p_style),
+            Paragraph(p_desc, ParagraphStyle('Desc', fontName='Helvetica', fontSize=7, leading=8))
         ])
 
-    dx_table = Table(dx_rows, colWidths=[1*cm, 9*cm, 9*cm])
-    dx_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0369A1')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f9ff')]),
+    dp_table = Table(dp_rows, colWidths=[1*cm, 3.2*cm, 5.3*cm, 3.2*cm, 5.3*cm])
+    dp_table.setStyle(TableStyle([
+        ('SPAN', (0, 0), (0, 1)), # Span No.
+        ('SPAN', (1, 0), (2, 0)), # Span DIAGNOSA
+        ('SPAN', (3, 0), (4, 0)), # Span PROSEDUR
+        ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#0369A1')),
+        ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
+        ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#BAE6FD')),
+        ('ROWBACKGROUNDS', (2, 2), (-1, -1), [colors.white, colors.HexColor('#f0f9ff')]),
         ('FONTSIZE', (0, 0), (-1, -1), 7.5),
-        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4), ('ALIGN', (0, 0), (0, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('ALIGN', (0, 2), (0, -1), 'CENTER'),
+        ('ALIGN', (1, 2), (1, -1), 'CENTER'),
+        ('ALIGN', (3, 2), (3, -1), 'CENTER'),
     ]))
-
-    px_rows = [[
-        Paragraph("No.", bold_style), Paragraph("Kode ICD-9-CM", bold_style),
-        Paragraph("Kode iDRG", bold_style)
-    ]]
-    for i in range(max_px):
-        code = proc_codes[i] if i < len(proc_codes) else ''
-        desc = f"{code} - {get_icd_desc_robust(code, icd_dict)}" if code else ''
-        px_rows.append([
-            Paragraph(str(i+1), normal_style),
-            Paragraph(desc, bold_style if code else muted_style),
-            Paragraph(desc, bold_style if code else muted_style)
-        ])
-
-    px_table = Table(px_rows, colWidths=[1*cm, 9*cm, 9*cm])
-    px_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#6D28D9')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f3ff')]),
-        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#DDD6FE')),
-        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
-        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4), ('ALIGN', (0, 0), (0, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-
-    # Render sequentially to allow page splitting for patients with massive diag/proc lists
-    story.append(Paragraph("Daftar Diagnosa", bold_style))
-    story.append(Spacer(1, 2))
-    story.append(dx_table)
-    story.append(Spacer(1, 8))
     
-    story.append(Paragraph("Daftar Prosedur", bold_style))
-    story.append(Spacer(1, 2))
-    story.append(px_table)
+    story.append(dp_table)
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("Catatan: Isi sesuai urutan yang tercantum pada data klaim.", ParagraphStyle('Note', fontName='Helvetica-Oblique', fontSize=7, textColor=colors.gray)))
     story.append(Spacer(1, 10))
 
     # === Section 4: Ringkasan Temuan ===

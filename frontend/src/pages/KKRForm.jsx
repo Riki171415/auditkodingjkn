@@ -78,8 +78,8 @@ export default function KKRForm() {
   if (loading) return <div className="fade-in"><div className="spinner" style={{margin:'auto', width:40,height:40,border:'4px solid var(--kmk-cyan)',borderTopColor:'transparent',borderRadius:'50%'}}></div></div>;
   if (!data) return <div>Gagal memuat formulir.</div>;
 
-  const diags = data.case.diaglist ? data.case.diaglist.split(';') : [];
-  const procs = data.case.proclist ? data.case.proclist.split(';') : [];
+  const diags = data.case.diaglist ? data.case.diaglist.split(';').map(c => c.trim()).filter(c => c) : [];
+  const procs = data.case.proclist ? data.case.proclist.split(';').map(c => c.trim()).filter(c => c) : [];
   
   // Extract severity level from INA-CBG code if possible (usually last char like I, II, III)
   const inacbgParts = data.case.inacbg ? data.case.inacbg.split('-') : [];
