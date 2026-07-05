@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard';
 import Hospitals from './pages/Hospitals';
 import DeskReview from './pages/DeskReview';
 import KKRForm from './pages/KKRForm';
+import OnSiteList from './pages/OnSiteList';
+import KKROSForm from './pages/KKROSForm';
 
 function Sidebar() {
   const location = useLocation();
@@ -64,7 +66,8 @@ function App() {
           <Route path="/desk-review-all" element={<div className="glass-panel fade-in" style={{padding: 24}}><h2>Tahap 3: Pelaksanaan Desk Review</h2><p>Pilih Rumah Sakit di menu Tahap 2 untuk memulai Desk Review kasusnya.</p></div>} />
           <Route path="/desk-review/:kode_rs" element={<DeskReview />} />
           <Route path="/kkr-dr01/:sep" element={<KKRForm />} />
-          <Route path="/onsite-audit" element={<div className="glass-panel fade-in" style={{padding: 24}}><h2>Tahap 4: On-Site Audit</h2><p>Daftar kasus yang direkomendasikan On-Site Audit berdasarkan tingkat keparahan (High). Segera hadir...</p></div>} />
+          <Route path="/onsite-audit" element={<OnSiteList />} />
+          <Route path="/kkr-os01/:sep" element={<KKROSForm />} />
           <Route path="/laporan" element={<div className="glass-panel fade-in" style={{padding: 24}}><h2>Tahap 5: Rekonsiliasi & Laporan Hasil Audit</h2><p>Mengekspor seluruh Kertas Kerja Reviewer ke format rekapitulasi akhir (Segera hadir...)</p></div>} />
         </Routes>
       </Layout>

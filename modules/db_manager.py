@@ -23,10 +23,19 @@ def init_audit_db():
         sep TEXT PRIMARY KEY,
         kode_rs TEXT NOT NULL,
         reviewer_name TEXT,
-        catatan TEXT,
-        kesimpulan TEXT,
         tindakan_reviewer TEXT,
         triggered_rules_json TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    
+    # Table for KKR-OS01 (On-Site Audit)
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS kkr_os01 (
+        sep TEXT PRIMARY KEY,
+        kode_rs TEXT NOT NULL,
+        reviewer_name TEXT,
+        form_data_json TEXT,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     ''')
@@ -85,6 +94,46 @@ def load_kkr_dr01(sep):
         except:
             form_data = {}
         row_dict['form_data'] = form_data
+        return row_dict
+    return None
+
+def save_kkr_os01(sep, data):
+    """Save or update KKR-OS01 data"""
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    
+    kode_rs = data.get('kode_rs', '')
+    reviewer_name = data.get('reviewer_name', '')
+    form_data_json = json.dumps(data.get('form_data', {}), ensure_ascii=False)
+    updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    cursor.execute('''
+    INSERT INTO kkr_os01 (sep, kode_rs, reviewer_name, form_data_json, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(sep) DO UPDATE SET
+        reviewer_name=excluded.reviewer_name,
+        form_data_json=excluded.form_data_json,
+        updated_at=excluded.updated_at
+    ''', (sep, kode_rs, reviewer_name, form_data_json, updated_at))
+    
+    conn.commit()
+    conn.close()
+
+def load_kkr_os01(sep):
+    """Load KKR-OS01 data for a specific SEP"""
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM kkr_os01 WHERE sep = ?", (sep,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        row_dict = dict(row)
+        try:
+            row_dict['form_data'] = json.loads(row_dict.get('form_data_json') or '{}')
+        except:
+            row_dict['form_data'] = {}
         return row_dict
     return None
 

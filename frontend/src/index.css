@@ -327,6 +327,16 @@ h1, h2, h3, h4 {
   color: black;
   text-align: center;
 }
+.kkr-th-green {
+  background-color: #00695c;
+  color: white;
+  text-align: center;
+}
+.kkr-th-light-green {
+  background-color: #e0f2f1;
+  color: black;
+  text-align: center;
+}
 .kkr-inner-table {
   width: 100%;
   border-collapse: collapse;

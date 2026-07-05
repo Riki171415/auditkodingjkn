@@ -59,12 +59,75 @@ def api_dashboard_stats():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/kkr-os01/save', methods=['POST'])
+def api_save_os01():
+    try:
+        data = request.json
+        sep = data.get('sep')
+        if not sep:
+            return jsonify({'success': False, 'error': 'SEP is required'}), 400
+            
+        from modules.db_manager import save_kkr_os01
+        save_kkr_os01(sep, data)
+        return jsonify({'success': True})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/kkr-os01/load/<path:sep>', methods=['GET'])
+def api_load_os01(sep):
+    try:
+        from modules.db_manager import load_kkr_os01
+        data = load_kkr_os01(sep)
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/dashboard/scatter')
 def api_dashboard_scatter():
     try:
         from modules.data_loader import get_scatter_data
         data = get_scatter_data()
         return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/onsite/list')
+def api_onsite_list():
+    try:
+        from modules.db_manager import get_audit_db
+        conn = get_audit_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM kkr_dr01")
+        rows = cursor.fetchall()
+        conn.close()
+        
+        import json
+        onsite_cases = []
+        for row in rows:
+            try:
+                fd = json.loads(row['tindakan_reviewer'] or '{}')
+                if fd.get('keputusan') == 'Direkomendasikan On-Site Audit':
+                    onsite_cases.append({
+                        'sep': row['sep'],
+                        'kode_rs': row['kode_rs'],
+                        'reviewer_dr': row['reviewer_name']
+                    })
+            except:
+                pass
+                
+        # Attach RS name from dataloader
+        from modules.data_loader import get_hospital_list
+        rs_list = {rs['kode_rs']: rs['nama_rs'] for rs in get_hospital_list()}
+        for c in onsite_cases:
+            c['nama_rs'] = rs_list.get(c['kode_rs'], c['kode_rs'])
+            
+        return jsonify({'success': True, 'data': onsite_cases})
     except Exception as e:
         import traceback
         traceback.print_exc()
