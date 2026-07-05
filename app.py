@@ -8,7 +8,6 @@ import math
 import traceback
 import json
 from datetime import datetime
-from flask_cors import CORS
 
 # Add modules to path
 import sys
@@ -25,7 +24,12 @@ from rule_engine import validate_case, validate_batch_by_rs, get_validation_summ
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')
 app = Flask(__name__, static_folder=FRONTEND_DIST, static_url_path='')
-CORS(app)
+
+try:
+    from flask_cors import CORS
+    CORS(app)
+except ImportError:
+    pass  # CORS not needed in production when served from same domain
 app.config['JSON_ENSURE_ASCII'] = False
 
 PER_PAGE = 50
