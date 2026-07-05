@@ -46,19 +46,19 @@ export default function Dashboard() {
         
         <div className="glass-panel" style={{ padding: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-            <FileSpreadsheet size={20} color="var(--kmk-green)" /> Kasus Valid
+            <FileSpreadsheet size={20} color="var(--kmk-green)" /> RS Audit 2SD
           </div>
           <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--kmk-green)' }}>
-            {stats.kasus_valid.toLocaleString('id-ID')}
+            {stats.audit_2sd ? stats.audit_2sd.toLocaleString('id-ID') : '0'}
           </div>
         </div>
         
         <div className="glass-panel" style={{ padding: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-            <AlertTriangle size={20} color="var(--kmk-red)" /> Temuan/Rekomendasi
+            <AlertTriangle size={20} color="var(--kmk-red)" /> RS Audit IQR
           </div>
           <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--kmk-red)' }}>
-            {stats.kasus_temuan.toLocaleString('id-ID')}
+            {stats.audit_iqr ? stats.audit_iqr.toLocaleString('id-ID') : '0'}
           </div>
         </div>
       </div>
