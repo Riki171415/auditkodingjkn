@@ -39,6 +39,9 @@ def serve_react(path):
     if path.startswith('api/'):
         return jsonify({'error': 'API endpoint not found'}), 404
         
+    if path == 'favicon.ico':
+        return '', 204
+        
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     else:
