@@ -152,6 +152,10 @@ def load_individual_data(kode_rs=None):
         df['tarif_inacbg'] = pd.to_numeric(df['tarif_inacbg'], errors='coerce')
     if 'tarif_rs' in df.columns:
         df['tarif_rs'] = pd.to_numeric(df['tarif_rs'], errors='coerce')
+    if 'alos' in df.columns:
+        df['alos'] = pd.to_numeric(df['alos'], errors='coerce')
+    if 'cmi' in df.columns:
+        df['cmi'] = pd.to_numeric(df['cmi'], errors='coerce')
         
     return df
 
