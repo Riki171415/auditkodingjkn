@@ -103,15 +103,9 @@ def generate_dummy_data():
         rs_data['_rules']     = rs_data.apply(lambda r: validate_case(r.to_dict()), axis=1)
         rs_data['_skor']      = rs_data['_rules'].apply(calculate_knavp_score)
 
-        cases_with_findings = rs_data[rs_data['_rules'].apply(lambda x: len(x) > 0)]
-        cases_clean         = rs_data[rs_data['_rules'].apply(lambda x: len(x) == 0)]
-
-        # Target 50 kasus per RS (max 15 finding, sisanya clean)
-        n_fraud = min(len(cases_with_findings), 15)
-        n_clean = min(len(cases_clean), 50 - n_fraud)
-
-        target_cases = cases_with_findings.head(n_fraud).to_dict('records')
-        target_cases.extend(cases_clean.head(n_clean).to_dict('records'))
+        # Ambil 50 kasus pertama secara natural agar hasil LHA benar-benar
+        # mencerminkan output dari logic audit (tanpa rekayasa rasio).
+        target_cases = rs_data.head(50).to_dict('records')
 
         for case in target_cases:
             sep             = case['sep']
