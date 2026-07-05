@@ -765,9 +765,9 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
     story.append(section_hdr("5.  ANALISIS & KEPUTUSAN REVIEWER"))
 
     analisis = kkr_data.get('analisis_reviewer', '—')
-    keputusan = kkr_data.get('keputusan_reviewer', '—')
+    keputusan = kkr_data.get('keputusan_reviewer') or kkr_data.get('keputusan', '—')
     tingkat = kkr_data.get('tingkat_keyakinan', '—')
-    alasan = kkr_data.get('alasan', '—')
+    alasan = kkr_data.get('alasan') or kkr_data.get('alasan_keputusan', '—')
 
     ak_data = [
         [Paragraph("Analisis Reviewer", muted_style), Paragraph(analisis or '—', normal_style)],
