@@ -295,19 +295,42 @@ def api_case_detail(sep):
 def api_validate_case(sep):
     """Validate a single case and return KKR-DR01 data"""
     try:
+        from rule_engine import (
+            check_dual_coding_discrepancy,
+            calculate_knavp_score,
+            determine_recommendation_knavp
+        )
+
         case = get_case_by_sep(sep)
         if case is None:
             return jsonify({'success': False, 'error': 'Case not found'}), 404
-        
+
         # Run rule validation
         triggered_rules = validate_case(case)
         summary = get_validation_summary(triggered_rules)
         rekomendasi = determine_recommendation(triggered_rules)
-        
+
+        # Dual coding discrepancy (per-row comparison INA-CBG vs iDRG)
+        dual_coding = check_dual_coding_discrepancy(case)
+
+        # KNAVP Score & recommendation
+        total_skor = calculate_knavp_score(triggered_rules)
+        knavp = determine_recommendation_knavp(
+            total_skor,
+            jumlah_beda_dual_coding=dual_coding['jumlah_beda_total']
+        )
+
         # Parse diag and proc lists for display
         diag_codes = [c.strip() for c in str(case.get('diaglist', '')).split(';') if c.strip()]
         proc_codes = [c.strip() for c in str(case.get('proclist', '')).split(';') if c.strip()]
-        
+
+        # CCL from idrg_code last digit
+        idrg_code_raw = str(case.get('idrg_code', '') or '')
+        ccl_digit = idrg_code_raw[-1] if idrg_code_raw else ''
+        ccl_map = {'0': 'No CC', '1': 'Mild CC', '2': 'Moderate CC',
+                   '3': 'Severe CC', '4': 'Catastrophic CC', '9': 'Merge CC'}
+        ccl_label = ccl_map.get(ccl_digit, '-')
+
         result = {
             'case': case,
             'diag_codes': diag_codes,
@@ -316,9 +339,14 @@ def api_validate_case(sep):
             'summary_by_category': summary,
             'total_triggered': len(triggered_rules),
             'rekomendasi': rekomendasi,
-            'has_high_severity': any(r['severity'] == 'High' for r in triggered_rules)
+            'has_high_severity': any(r['severity'] == 'High' for r in triggered_rules),
+            # New fields for KKR-DR01 v2
+            'dual_coding': dual_coding,
+            'knavp': knavp,
+            'ccl_digit': ccl_digit,
+            'ccl_label': ccl_label,
         }
-        
+
         return jsonify({'success': True, 'data': result})
     except Exception as e:
         import traceback

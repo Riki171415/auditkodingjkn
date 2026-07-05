@@ -486,8 +486,53 @@ def export_kkr_dr01_excel(kkr_data, validate_data=None):
 # PDF Export (ReportLab)
 # ============================================================
 
+def _parse_ccl(idrg_code):
+    """Parse CCL level from last digit of iDRG code"""
+    ccl_map = {'0': 'No CC', '1': 'Mild CC', '2': 'Moderate CC',
+               '3': 'Severe CC', '4': 'Catastrophic CC', '9': 'Merge CC'}
+    if not idrg_code:
+        return '-'
+    last = str(idrg_code).strip()[-1]
+    return ccl_map.get(last, '-')
+
+
+def _check_code_match_pdf(ina_code, idrg_code):
+    """
+    Match INA-CBG vs iDRG code (same logic as rule_engine.check_code_match).
+    Rules:
+      1. Exact match
+      2. Prefix/specificity: 90.59 vs 90.599
+      3. iDRG modifier strip: 99.04 vs 99.04+2
+    """
+    if not ina_code or not idrg_code:
+        return False
+    a = str(ina_code).strip().upper()
+    b = str(idrg_code).strip().upper()
+    if a == b:
+        return True
+    if a.startswith(b) or b.startswith(a):
+        return True
+    b_base = b.split('+')[0].strip()
+    a_base = a.split('+')[0].strip()
+    if a_base == b_base or a_base.startswith(b_base) or b_base.startswith(a_base):
+        return True
+    return False
+
+
+DIAG_EXCL_PDF = {'KG', 'HL', 'NL', 'KND', 'G89', 'U82', 'U83', 'U84'}
+PROC_EXCL_PDF = {'99.290'}
+
+
+def _parse_codes_pdf(raw, exclusions):
+    if not raw or str(raw).strip().lower() in ('', 'nan', 'none'):
+        return []
+    codes = [c.strip().upper() for c in str(raw).split(';') if c.strip()]
+    return [c for c in codes if c not in ('-', 'NAN') and
+            not any(c == e or c.startswith(e) for e in exclusions)]
+
+
 def export_kkr_dr01_pdf(kkr_data, validate_data=None):
-    """Export KKR-DR01 to PDF bytes"""
+    """Export KKR-DR01 (v2) to PDF bytes — layout sesuai formulir terbaru"""
     if not PDF_AVAILABLE:
         raise ImportError("reportlab not available")
 
@@ -572,14 +617,28 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
     # === Section 1: Identitas ===
     story.append(section_hdr("1.  IDENTITAS KLAIM (DATA KLAIM DATA CENTER)"))
 
+    jenis_kelamin_raw = str(case.get('jenis_kelamin', '')).upper()
+    if jenis_kelamin_raw in ['1', 'L', 'LAKI-LAKI']:
+        jk = '[ X ] L   [   ] P'
+    elif jenis_kelamin_raw in ['2', 'P', 'PEREMPUAN']:
+        jk = '[   ] L   [ X ] P'
+    else:
+        jk = '[   ] L   [   ] P'
+
     id_data = [
-        info_row("Nomor SEP", sep),
         info_row("Nomor Klaim", '—'),
-        info_row("Fasilitas Kesehatan (FPKTL)", nama_rs),
-        info_row("Kode FPKTL", kkr_data.get('kode_rs', case.get('kode_rs', '—'))),
+        info_row("Nomor SEP", sep),
+        info_row("Nomor Peserta", '—'),
+        info_row("Nama Peserta", case.get('nama_pasien', '—')),
+        info_row("Tanggal Lahir / Umur", f"{case.get('tanggal_lahir', '—')} / — tahun"),
+        info_row("Jenis Kelamin", jk),
         info_row("Tanggal Pelayanan", case.get('discharge_date', '—')),
-        info_row("Kelas Rawat", f"Kelas {case.get('kelas_rawat', '—')}"),
+        info_row("Jenis Pelayanan", '[ X ] Rawat Inap   [   ] Rawat Jalan' if 'ri' in str(case.get('inacbg', '')).lower() or not str(case.get('inacbg', '')).endswith('-0') else '[   ] Rawat Inap   [ X ] Rawat Jalan'),
+        info_row("Fasilitas Kesehatan", nama_rs),
+        info_row("Kode FPKTL", kkr_data.get('kode_rs', case.get('kode_rs', '—'))),
+        info_row("Kelas Rawat", case.get('kelas_rawat', '—')),
         info_row("Length of Stay (LOS)", f"{case.get('alos', '—')} hari"),
+        info_row("DPJP", '—'),
     ]
 
     id_table = Table(id_data, colWidths=[5.5*cm, 13.5*cm])
@@ -635,9 +694,13 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
 
     # === Section 3: Diagnosa & Prosedur ===
     story.append(section_hdr("3.  INPUT DATA KLAIM (BERDASARKAN DATA KLAIM DATA CENTER)"))
+    
+    story.append(Paragraph("3.1 DIAGNOSA", ParagraphStyle('SubSec', fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor('#0e3c6c'), spaceBefore=6, spaceAfter=4)))
 
     diag_codes = [c.strip() for c in str(case.get('diaglist', '') or '').split(';') if c.strip()]
+    diag_idrg_codes = [c.strip() for c in str(case.get('diaglist_idrg', case.get('diaglist', '')) or '').split(';') if c.strip()]
     proc_codes = [c.strip() for c in str(case.get('proclist', '') or '').split(';') if c.strip()]
+    proc_idrg_codes = [c.strip() for c in str(case.get('proclist_idrg', case.get('proclist', '')) or '').split(';') if c.strip()]
 
     triggered_rules = (validate_data or {}).get('triggered_rules', kkr_data.get('triggered_rules', []))
     triggered_set = set()
@@ -646,41 +709,45 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
         matches = re.findall(r'[A-Z]\d{2}(?:\.\d+)?', r.get('evidence', ''))
         triggered_set.update(matches)
 
-    max_rows = max(10, max(len(diag_codes), len(proc_codes)))
     icd_dict = get_icd_dict()
-
-    # Table Header
-    dp_rows = [
-        [Paragraph("No.", bold_style), Paragraph("DIAGNOSA", bold_style), "", Paragraph("PROSEDUR", bold_style), ""],
-        ["", Paragraph("INA-CBG / iDRG<br/>Kode ICD", bold_style), Paragraph("Deskripsi", bold_style), Paragraph("INA-CBG / iDRG<br/>Kode ICD-9-CM", bold_style), Paragraph("Deskripsi", bold_style)]
+    
+    max_dx = max(10, max(len(diag_codes), len(diag_idrg_codes)))
+    dx_rows = [
+        [Paragraph("No.", bold_style), Paragraph("INA-CBG", bold_style), "", Paragraph("iDRG", bold_style), ""],
+        ["", Paragraph("Kode ICD", bold_style), Paragraph("Deskripsi", bold_style), Paragraph("Kode ICD", bold_style), Paragraph("Deskripsi", bold_style)]
     ]
 
-    for i in range(max_rows):
+    for i in range(max_dx):
         d_code = diag_codes[i] if i < len(diag_codes) else ''
-        p_code = proc_codes[i] if i < len(proc_codes) else ''
+        d_idrg = diag_idrg_codes[i] if i < len(diag_idrg_codes) else ''
         
         d_trig = d_code in triggered_set
-        p_trig = p_code in triggered_set
+        d_idrg_trig = d_idrg in triggered_set
+        d_diff = (d_code != d_idrg)
         
-        d_style = ParagraphStyle('CT', fontName='Helvetica-Bold', fontSize=8, textColor=colors.HexColor('#DC2626')) if d_trig else bold_style
-        p_style = ParagraphStyle('CT', fontName='Helvetica-Bold', fontSize=8, textColor=colors.HexColor('#DC2626')) if p_trig else bold_style
+        # Color red if triggered OR if different
+        d_color = colors.HexColor('#DC2626') if (d_trig or d_diff) else colors.black
+        d_idrg_color = colors.HexColor('#DC2626') if (d_idrg_trig or d_diff) else colors.black
+        
+        d_style = ParagraphStyle('CT', fontName='Helvetica-Bold', fontSize=8, textColor=d_color)
+        d_idrg_style = ParagraphStyle('CT', fontName='Helvetica-Bold', fontSize=8, textColor=d_idrg_color)
         
         d_desc = get_icd_desc_robust(d_code, icd_dict) if d_code else '-'
-        p_desc = get_icd_desc_robust(p_code, icd_dict) if p_code else '-'
+        d_idrg_desc = get_icd_desc_robust(d_idrg, icd_dict) if d_idrg else '-'
         
-        dp_rows.append([
+        dx_rows.append([
             Paragraph(str(i+1), normal_style),
             Paragraph(d_code or '-', d_style),
-            Paragraph(d_desc, ParagraphStyle('Desc', fontName='Helvetica', fontSize=7, leading=8)),
-            Paragraph(p_code or '-', p_style),
-            Paragraph(p_desc, ParagraphStyle('Desc', fontName='Helvetica', fontSize=7, leading=8))
+            Paragraph(d_desc, ParagraphStyle('Desc', fontName='Helvetica', fontSize=7, leading=8, textColor=d_color if d_diff else colors.black)),
+            Paragraph(d_idrg or '-', d_idrg_style),
+            Paragraph(d_idrg_desc, ParagraphStyle('Desc', fontName='Helvetica', fontSize=7, leading=8, textColor=d_idrg_color if d_diff else colors.black))
         ])
 
-    dp_table = Table(dp_rows, colWidths=[1*cm, 3.2*cm, 5.3*cm, 3.2*cm, 5.3*cm])
-    dp_table.setStyle(TableStyle([
+    dx_table = Table(dx_rows, colWidths=[1*cm, 2.5*cm, 6*cm, 2.5*cm, 6*cm])
+    dx_table.setStyle(TableStyle([
         ('SPAN', (0, 0), (0, 1)), # Span No.
-        ('SPAN', (1, 0), (2, 0)), # Span DIAGNOSA
-        ('SPAN', (3, 0), (4, 0)), # Span PROSEDUR
+        ('SPAN', (1, 0), (2, 0)), # Span INA-CBG
+        ('SPAN', (3, 0), (4, 0)), # Span iDRG
         ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#0369A1')),
         ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
         ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
@@ -696,8 +763,63 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
         ('ALIGN', (1, 2), (1, -1), 'CENTER'),
         ('ALIGN', (3, 2), (3, -1), 'CENTER'),
     ]))
-    
-    story.append(dp_table)
+    story.append(dx_table)
+
+    story.append(Paragraph("3.2 PROSEDUR", ParagraphStyle('SubSec', fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor('#0e3c6c'), spaceBefore=10, spaceAfter=4)))
+
+    max_px = max(10, max(len(proc_codes), len(proc_idrg_codes)))
+    px_rows = [
+        [Paragraph("No.", bold_style), Paragraph("INA-CBG", bold_style), "", Paragraph("iDRG", bold_style), ""],
+        ["", Paragraph("Kode ICD-9-CM", bold_style), Paragraph("Deskripsi", bold_style), Paragraph("Kode ICD-9-CM", bold_style), Paragraph("Deskripsi", bold_style)]
+    ]
+
+    for i in range(max_px):
+        p_code = proc_codes[i] if i < len(proc_codes) else ''
+        p_idrg = proc_idrg_codes[i] if i < len(proc_idrg_codes) else ''
+        
+        p_trig = p_code in triggered_set
+        p_idrg_trig = p_idrg in triggered_set
+        p_diff = (p_code != p_idrg)
+        
+        p_color = colors.HexColor('#DC2626') if (p_trig or p_diff) else colors.black
+        p_idrg_color = colors.HexColor('#DC2626') if (p_idrg_trig or p_diff) else colors.black
+        
+        p_style = ParagraphStyle('CT', fontName='Helvetica-Bold', fontSize=8, textColor=p_color)
+        p_idrg_style = ParagraphStyle('CT', fontName='Helvetica-Bold', fontSize=8, textColor=p_idrg_color)
+        
+        p_desc = get_icd_desc_robust(p_code, icd_dict) if p_code else '-'
+        p_idrg_desc = get_icd_desc_robust(p_idrg, icd_dict) if p_idrg else '-'
+        
+        px_rows.append([
+            Paragraph(str(i+1), normal_style),
+            Paragraph(p_code or '-', p_style),
+            Paragraph(p_desc, ParagraphStyle('Desc', fontName='Helvetica', fontSize=7, leading=8, textColor=p_color if p_diff else colors.black)),
+            Paragraph(p_idrg or '-', p_idrg_style),
+            Paragraph(p_idrg_desc, ParagraphStyle('Desc', fontName='Helvetica', fontSize=7, leading=8, textColor=p_idrg_color if p_diff else colors.black))
+        ])
+
+    px_table = Table(px_rows, colWidths=[1*cm, 2.5*cm, 6*cm, 2.5*cm, 6*cm])
+    px_table.setStyle(TableStyle([
+        ('SPAN', (0, 0), (0, 1)), # Span No.
+        ('SPAN', (1, 0), (2, 0)), # Span INA-CBG
+        ('SPAN', (3, 0), (4, 0)), # Span iDRG
+        ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#6D28D9')),
+        ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
+        ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#C4B5FD')),
+        ('ROWBACKGROUNDS', (2, 2), (-1, -1), [colors.white, colors.HexColor('#f5f3ff')]),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('ALIGN', (0, 2), (0, -1), 'CENTER'),
+        ('ALIGN', (1, 2), (1, -1), 'CENTER'),
+        ('ALIGN', (3, 2), (3, -1), 'CENTER'),
+    ]))
+    story.append(px_table)
+
     story.append(Spacer(1, 4))
     story.append(Paragraph("Catatan: Isi sesuai urutan yang tercantum pada data klaim.", ParagraphStyle('Note', fontName='Helvetica-Oblique', fontSize=7, textColor=colors.gray)))
     story.append(Spacer(1, 10))
@@ -825,22 +947,30 @@ from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-def generate_lha_word(kode_rs, rs_name, cases, output_path):
+def generate_lha_word(kode_rs, rs_name, cases, output_path, summary_stats=None):
     """
-    Generate Laporan Hasil Audit (LHA) in Word format based on the guidelines.
+    Generate Laporan Hasil Audit (LHA) in Word format.
+    summary_stats (optional dict): {
+        total_kasus, onsite, sampling, monitoring,
+        avg_skor_knavp, total_beda_dc
+    }
     """
     document = Document()
-    
-    # Title
+
+    # ── Title ─────────────────────────────────────────────────────────────────
     heading = document.add_heading('LAPORAN HASIL AUDIT (LHA) KODING JKN', 0)
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
+    sub = document.add_paragraph('Transisi INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG)')
+    sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub.runs[0].italic = True
+
     document.add_paragraph(f"Nama Rumah Sakit : {rs_name}")
-    document.add_paragraph(f"Kode Rumah Sakit : {kode_rs}")
+    document.add_paragraph(f"Kode RS          : {kode_rs}")
     document.add_paragraph(f"Jumlah Sampel Audit: {len(cases)} Kasus")
-    
-    document.add_heading('1. Ringkasan Kasus', level=1)
-    
+    from datetime import datetime
+    document.add_paragraph(f"Tanggal Generate   : {datetime.now().strftime('%d/%m/%Y %H:%M')} WIB")
+
+
     conn = get_audit_db()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) as total, SUM(CASE WHEN inacbg LIKE '%-0' THEN 1 ELSE 0 END) as rj, SUM(CASE WHEN inacbg NOT LIKE '%-0' THEN 1 ELSE 0 END) as ri FROM datadb.individual_data WHERE kode_rs = ?", (kode_rs,))
@@ -866,45 +996,101 @@ def generate_lha_word(kode_rs, rs_name, cases, output_path):
     v1_cells[3].text = str(ri_rs)
     v1_cells[4].text = str(len(cases))
     
+    # ── Ringkasan KNAVP v2 ────────────────────────────────────────────────────
+    document.add_heading('1-A. Ringkasan Analisis KNAVP (Otomatis)', level=1)
+
+    ss = summary_stats or {}
+    total_sample = ss.get('total_kasus', len(cases))
+    onsite   = ss.get('onsite', sum(1 for c in cases if 'On-Site' in str(c.get('keputusan_sistem', ''))))
+    sampling = ss.get('sampling', sum(1 for c in cases if 'Sampling' in str(c.get('keputusan_sistem', '')) and 'On-Site' not in str(c.get('keputusan_sistem', ''))))
+    monitor  = ss.get('monitoring', total_sample - onsite - sampling)
+    avg_skor = ss.get('avg_skor_knavp', round(sum(float(c.get('knavp_skor', 0) or 0) for c in cases) / max(len(cases), 1), 1))
+    beda_dc  = ss.get('total_beda_dc', sum(int(c.get('jumlah_beda_dual_coding', 0) or 0) for c in cases))
+
+    knavp_tbl = document.add_table(rows=8, cols=2)
+    knavp_tbl.style = 'Table Grid'
+    knavp_rows = [
+        ['Parameter KNAVP', 'Nilai'],
+        ['Total Kasus Divalidasi', str(total_sample)],
+        ['Rekomendasi On-Site Audit', str(onsite)],
+        ['Rekomendasi Audit Sampling', str(sampling)],
+        ['Rekomendasi Monitoring', str(monitor)],
+        ['Rata-rata Skor KNAVP', str(avg_skor)],
+        ['Total Perbedaan Dual Coding (INA-CBG vs iDRG)', str(beda_dc)],
+        ['Metode Matching Dual Coding', 'Exact / Prefix / Modifier (+X)'],
+    ]
+    for i, (label, val) in enumerate(knavp_rows):
+        cells = knavp_tbl.rows[i].cells
+        cells[0].text = label
+        cells[1].text = val
+        if i == 0:
+            for cell in cells:
+                for para in cell.paragraphs:
+                    for run in para.runs:
+                        run.bold = True
+
+    document.add_heading('1-B. Ringkasan Kasus', level=1)
+
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT COUNT(*) as total, "
+        "SUM(CASE WHEN inacbg LIKE '%-0' THEN 1 ELSE 0 END) as rj, "
+        "SUM(CASE WHEN inacbg NOT LIKE '%-0' THEN 1 ELSE 0 END) as ri "
+        "FROM datadb.individual_data WHERE kode_rs = ?",
+        (kode_rs,)
+    )
+    rs_stats = cursor.fetchone()
+    total_rs = rs_stats['total']
+    rj_rs = rs_stats['rj'] or 0
+    ri_rs = rs_stats['ri'] or 0
+
+    table1 = document.add_table(rows=5, cols=2)
+    table1.style = 'Table Grid'
+    t1_cells = table1.columns[0].cells
+    t1_cells[0].text = 'Uraian'
+    t1_cells[1].text = 'Total Kasus'
+    t1_cells[2].text = 'Rawat Jalan'
+    t1_cells[3].text = 'Rawat Inap'
+    t1_cells[4].text = 'Total Kasus Direview'
+    v1_cells = table1.columns[1].cells
+    v1_cells[0].text = 'Jumlah'
+    v1_cells[1].text = str(total_rs)
+    v1_cells[2].text = str(rj_rs)
+    v1_cells[3].text = str(ri_rs)
+    v1_cells[4].text = str(len(cases))
+
     document.add_heading('2. Ringkasan Temuan Audit', level=1)
-    
-    # Load real rules for these cases
+
+    # Load rules
     seps = [c['sep'] for c in cases]
     placeholders = ','.join('?' for _ in seps)
-    cursor.execute(f"SELECT sep, diaglist, proclist FROM datadb.individual_data WHERE sep IN ({placeholders})", seps)
+    cursor.execute(
+        f"SELECT sep, diaglist, proclist FROM datadb.individual_data WHERE sep IN ({placeholders})",
+        seps
+    )
     rows = cursor.fetchall()
     conn.close()
-    
     full_cases_map = {row['sep']: dict(row) for row in rows}
-    
+
     rule_counts = {
-        'combination_code': 0,
-        'dagger_asterisk': 0,
-        'includes_excludes': 0,
-        'underlying_manifestation': 0,
-        'procedure_validation': 0,
-        'unbundling': 0,
-        'medical_evidence': 0,
-        'administrative_validation': 0,
-        'age_validation': 0,
-        'los_validation': 0,
+        'combination_code': 0, 'dagger_asterisk': 0, 'includes_excludes': 0,
+        'underlying_manifestation': 0, 'procedure_validation': 0, 'unbundling': 0,
+        'medical_evidence': 0, 'administrative_validation': 0,
+        'age_validation': 0, 'los_validation': 0,
     }
-    
     for case in cases:
         sep = case['sep']
         if sep in full_cases_map:
             triggered = validate_case(full_cases_map[sep])
             for rule in triggered:
                 kat = rule.get('kategori', 'administrative_validation')
-                if kat in rule_counts:
-                    rule_counts[kat] += 1
-                else:
-                    rule_counts['administrative_validation'] += 1
+                rule_counts[kat] = rule_counts.get(kat, 0) + 1
 
     table2 = document.add_table(rows=11, cols=2)
     table2.style = 'Table Grid'
     t2_data = [
-        ['Kelompok Aturan', 'Jumlah Temuan'],
+        ['Kelompok Aturan KNAVP', 'Jumlah Temuan'],
         ['Combination Code', str(rule_counts['combination_code'])],
         ['Dagger & Asterisk', str(rule_counts['dagger_asterisk'])],
         ['Includes dan Excludes', str(rule_counts['includes_excludes'])],
@@ -920,31 +1106,42 @@ def generate_lha_word(kode_rs, rs_name, cases, output_path):
         row_cells = table2.rows[i].cells
         row_cells[0].text = row_data[0]
         row_cells[1].text = row_data[1]
-        
+        if i == 0:
+            for cell in row_cells:
+                for para in cell.paragraphs:
+                    for run in para.runs:
+                        run.bold = True
+
     document.add_heading('3. Rincian Sampel Audit', level=1)
-    
-    # Table 17
-    table3 = document.add_table(rows=1, cols=5)
+
+    # Table per SEP dengan kolom KNAVP v2
+    table3 = document.add_table(rows=1, cols=8)
     table3.style = 'Table Grid'
-    hdr_cells = table3.rows[0].cells
-    hdr_cells[0].text = 'No'
-    hdr_cells[1].text = 'Nomor SEP'
-    hdr_cells[2].text = 'Keputusan'
-    hdr_cells[3].text = 'Selisih Tarif'
-    hdr_cells[4].text = 'Rekomendasi'
-    
+    hdrs = ['No', 'Nomor SEP', 'INA-CBG', 'iDRG / CCL', 'Skor KNAVP',
+            'Tingkat Risiko', 'Selisih Tarif (Rp)', 'Rekomendasi']
+    for i, h in enumerate(hdrs):
+        cell = table3.rows[0].cells[i]
+        cell.text = h
+        for para in cell.paragraphs:
+            for run in para.runs:
+                run.bold = True
+
     for idx, case in enumerate(cases):
         row_cells = table3.add_row().cells
         row_cells[0].text = str(idx + 1)
         row_cells[1].text = str(case.get('sep', ''))
-        row_cells[2].text = str(case.get('keputusan', ''))
+        row_cells[2].text = str(case.get('inacbg', '-'))
+        row_cells[3].text = f"{case.get('idrg_code', '-')} / {case.get('ccl_label', '-')}"
+        row_cells[4].text = str(case.get('knavp_skor', '-'))
+        row_cells[5].text = str(case.get('tingkat_risiko', '-'))
         try:
             selisih = float(case.get('tarif_inacbg') or 0) - float(case.get('tarif_rs') or 0)
-        except:
+        except Exception:
             selisih = 0
-        row_cells[3].text = f"Rp {selisih:,.0f}"
-        row_cells[4].text = str(case.get('rekomendasi_lanjut', ''))
-        
+        row_cells[6].text = f"Rp {selisih:,.0f}"
+        row_cells[7].text = str(case.get('keputusan_sistem') or case.get('rekomendasi_lanjut', '-'))
+
+
     document.add_heading('4. Pengesahan', level=1)
     table4 = document.add_table(rows=2, cols=3)
     table4.style = 'Table Grid'

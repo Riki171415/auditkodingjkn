@@ -174,6 +174,13 @@ def evaluate_rule(rule, diag_codes, proc_codes, case_data=None):
                 if alos > 0 and cmi_val > 0 and alos > (cmi_val * cond['los_threshold_multiplier'] * 5):
                     return True, f"LOS={alos} hari terindikasi tidak wajar"
                     
+        elif cond_type == 'dual_coding_discrepancy':
+            # Check for missing secondary code requirement
+            has_primary = has_any_code(diag_codes, cond['primary_diag'])
+            has_secondary = has_any_code(diag_codes, cond['secondary_diag_prefix'])
+            if has_primary and not has_secondary:
+                return True, "Dual coding diperlukan namun tidak ditemukan kode pendukung"
+
     except Exception as e:
         pass
     
@@ -183,7 +190,7 @@ def evaluate_rule(rule, diag_codes, proc_codes, case_data=None):
 def validate_case(case_data):
     """
     Run all rules against a single case.
-    Returns list of triggered rules with details.
+    Returns list of triggered rules with details, including bobot and kelompok_rule.
     """
     rules = load_rules()
     
@@ -198,11 +205,15 @@ def validate_case(case_data):
     for rule in rules:
         triggered_flag, evidence = evaluate_rule(rule, diag_codes, proc_codes, case_data)
         if triggered_flag:
+            severity = rule.get('severity', 'Low')
+            bobot = rule.get('bobot', _get_default_bobot(severity))
             triggered.append({
                 'rule_id': rule['rule_id'],
                 'nama_aturan': rule['nama_aturan'],
                 'kategori': rule['kategori'],
-                'severity': rule['severity'],
+                'kelompok_rule': rule.get('kelompok_rule', _get_kelompok_label(rule.get('kategori', ''))),
+                'severity': severity,
+                'bobot': bobot,
                 'ptd': rule['ptd'],
                 'pesan_validasi': rule['pesan_validasi'],
                 'rekomendasi_reviewer': rule['rekomendasi_reviewer'],
@@ -210,6 +221,29 @@ def validate_case(case_data):
             })
     
     return triggered
+
+
+def _get_default_bobot(severity):
+    """Default bobot based on severity if not defined in rule JSON"""
+    return {'High': 3, 'Medium': 2, 'Low': 1}.get(severity, 1)
+
+
+def _get_kelompok_label(kategori):
+    """Human-readable kelompok rule label"""
+    labels = {
+        'combination_code': 'Combination Code',
+        'dagger_asterisk': 'Dagger & Asterisk',
+        'includes_excludes': 'Includes/Excludes',
+        'underlying_manifestation': 'Underlying & Manifestation',
+        'procedure_validation': 'Procedure Validation',
+        'unbundling': 'Unbundling',
+        'dual_coding': 'Dual Coding',
+        'medical_evidence': 'Medical Evidence',
+        'administrative_validation': 'Administrative',
+        'age_validation': 'Age Validation',
+        'los_validation': 'LOS Validation',
+    }
+    return labels.get(kategori, kategori)
 
 
 def get_validation_summary(triggered_rules):
@@ -221,6 +255,7 @@ def get_validation_summary(triggered_rules):
         'underlying_manifestation': 'Underlying Cause dan Manifestation',
         'procedure_validation': 'Procedure Validation',
         'unbundling': 'Unbundling dan Omit Code',
+        'dual_coding': 'Dual Coding Discrepancy',
         'medical_evidence': 'Medical Evidence Validation',
         'administrative_validation': 'Administrative Validation',
         'age_validation': 'Age Validation',
@@ -241,23 +276,184 @@ def get_validation_summary(triggered_rules):
     }
 
 
-def determine_recommendation(triggered_rules):
-    """Determine overall recommendation based on triggered rules"""
-    if not triggered_rules:
-        return "Tidak diperlukan tindak lanjut"
-    
-    severities = [r['severity'] for r in triggered_rules]
-    
-    if 'High' in severities:
-        high_count = severities.count('High')
-        if high_count >= 3:
-            return "Direkomendasikan On-Site Audit"
-        return "Perlu Monitoring"
-    
-    if 'Medium' in severities:
-        return "Perlu Monitoring"
-    
-    return "Tidak diperlukan tindak lanjut"
+# ============================================================
+# Dual Coding Discrepancy Checker
+# (Dikloning dari SAK-iDRG analyze_new.py, diperluas)
+# ============================================================
+
+# Kode non-klinis / admin yang diabaikan dari perbandingan
+DIAG_EXCLUSIONS = {'KG', 'HL', 'NL', 'KND', 'G89', 'U82', 'U83', 'U84'}
+PROC_EXCLUSIONS = {'99.290'}
+
+
+def _is_excluded(code, exclusion_set):
+    """Check if a code should be excluded from comparison"""
+    c = str(code).strip().upper()
+    return any(c == e or c.startswith(e) for e in exclusion_set)
+
+
+def check_code_match(ina_code, idrg_code):
+    """
+    Compare a single INA-CBG code vs iDRG code.
+    Returns True (Sesuai) or False (Tidak Sesuai).
+
+    Aturan matching (berurutan):
+    1. Exact match          : 'A01.0'  vs 'A01.0'    -> Sesuai
+    2. Prefix/spesifisitas  : '90.59'  vs '90.599'   -> Sesuai (one starts with other)
+    3. iDRG Modifier (+X)   : '99.04'  vs '99.04+2'  -> Sesuai (strip '+...' dari iDRG)
+    4. No match             : benar-benar beda        -> Tidak Sesuai
+    """
+    if not ina_code or not idrg_code:
+        return False
+
+    a = str(ina_code).strip().upper()
+    b = str(idrg_code).strip().upper()
+
+    # Rule 1: Exact match
+    if a == b:
+        return True
+
+    # Rule 2: Prefix / specificity tolerance
+    if a.startswith(b) or b.startswith(a):
+        return True
+
+    # Rule 3: iDRG modifier strip — e.g. '99.04+2' -> '99.04'
+    b_base = b.split('+')[0].strip() if '+' in b else b
+    a_base = a.split('+')[0].strip() if '+' in a else a
+    if a_base == b_base:
+        return True
+    if a_base.startswith(b_base) or b_base.startswith(a_base):
+        return True
+
+    return False
+
+
+def check_dual_coding_discrepancy(case_data):
+    """
+    Compare INA-CBG vs iDRG code lists row-by-row.
+    Returns list of per-row comparison results for diagnosa & prosedur.
+
+    Each row dict:
+        {
+          'no': int,
+          'ina_code': str,
+          'ina_desc': str,
+          'idrg_code': str,
+          'idrg_desc': str,
+          'sesuai': bool,
+          'keterangan': str   # 'Kode & Deskripsi sama' / 'Kode berbeda' / 'Hanya di INA-CBG' / 'Hanya di iDRG'
+        }
+    """
+    from modules.data_loader import get_icd_dict
+    icd_dict = get_icd_dict()
+
+    def _get_desc(code):
+        if not code:
+            return ''
+        c = str(code).strip().upper().split('+')[0]  # strip modifier for lookup
+        while len(c) >= 3:
+            if c in icd_dict:
+                return icd_dict[c]
+            c = c[:-1]
+        return '-'
+
+    def _parse(raw, exclusions):
+        if not raw or str(raw).strip().lower() in ('', 'nan', 'none'):
+            return []
+        codes = [c.strip().upper() for c in str(raw).split(';') if c.strip()]
+        return [c for c in codes if c not in ('-', 'NAN') and not _is_excluded(c, exclusions)]
+
+    diag_ina = _parse(case_data.get('diaglist', ''), DIAG_EXCLUSIONS)
+    diag_idrg = _parse(case_data.get('diaglist_idrg', case_data.get('diaglist', '')), DIAG_EXCLUSIONS)
+    proc_ina = _parse(case_data.get('proclist', ''), PROC_EXCLUSIONS)
+    proc_idrg = _parse(case_data.get('proclist_idrg', case_data.get('proclist', '')), PROC_EXCLUSIONS)
+
+    def _build_rows(ina_list, idrg_list):
+        rows = []
+        max_len = max(len(ina_list), len(idrg_list), 1)
+        for i in range(max_len):
+            ina_c  = ina_list[i]  if i < len(ina_list)  else ''
+            idrg_c = idrg_list[i] if i < len(idrg_list) else ''
+
+            if ina_c and idrg_c:
+                sesuai = check_code_match(ina_c, idrg_c)
+                ket = 'Kode & Deskripsi sama' if sesuai else 'Kode berbeda'
+            elif ina_c and not idrg_c:
+                sesuai = False
+                ket = 'Hanya di INA-CBG'
+            elif idrg_c and not ina_c:
+                sesuai = False
+                ket = 'Hanya di iDRG'
+            else:
+                sesuai = True
+                ket = '-'
+
+            rows.append({
+                'no': i + 1,
+                'ina_code':  ina_c,
+                'ina_desc':  _get_desc(ina_c)  if ina_c  else '-',
+                'idrg_code': idrg_c,
+                'idrg_desc': _get_desc(idrg_c) if idrg_c else '-',
+                'sesuai':    sesuai,
+                'keterangan': ket,
+            })
+        return rows
+
+    diag_rows = _build_rows(diag_ina, diag_idrg)
+    proc_rows = _build_rows(proc_ina, proc_idrg)
+
+    jumlah_beda_diag = sum(1 for r in diag_rows if not r['sesuai'])
+    jumlah_beda_proc = sum(1 for r in proc_rows if not r['sesuai'])
+
+    return {
+        'diag_rows': diag_rows,
+        'proc_rows': proc_rows,
+        'jumlah_beda_diag': jumlah_beda_diag,
+        'jumlah_beda_proc': jumlah_beda_proc,
+        'jumlah_beda_total': jumlah_beda_diag + jumlah_beda_proc,
+    }
+
+
+# ============================================================
+# KNAVP Score & Recommendation
+# ============================================================
+
+def calculate_knavp_score(triggered_rules):
+    """Sum of bobot for all triggered rules = Total Skor KNAVP"""
+    return sum(r.get('bobot', _get_default_bobot(r.get('severity', 'Low'))) for r in triggered_rules)
+
+
+def determine_recommendation_knavp(total_skor, jumlah_beda_dual_coding=0):
+    """
+    Determine system recommendation based on KNAVP total score.
+    Threshold (from gauge in form image):
+      0        -> Tidak perlu tindak lanjut
+      1-3      -> Rendah  -> Monitoring
+      4-7      -> Sedang  -> Audit Sampling
+      >= 8     -> Tinggi  -> Direkomendasikan On-Site Audit
+    Dual coding differences also influence: each difference adds weight.
+    """
+    effective_skor = total_skor + (jumlah_beda_dual_coding * 1)  # each dual coding diff = +1
+
+    if effective_skor == 0:
+        tingkat = 'Rendah'
+        keputusan = 'Tidak perlu tindak lanjut'
+    elif effective_skor <= 3:
+        tingkat = 'Rendah'
+        keputusan = 'Monitoring (Tidak perlu tindak lanjut)'
+    elif effective_skor <= 7:
+        tingkat = 'Sedang'
+        keputusan = 'Audit Sampling'
+    else:
+        tingkat = 'Tinggi'
+        keputusan = 'Direkomendasikan On-Site Audit'
+
+    return {
+        'total_skor': total_skor,
+        'effective_skor': effective_skor,
+        'tingkat_risiko': tingkat,
+        'keputusan_sistem': keputusan,
+    }
 
 
 def validate_batch_by_rs(df_rs):

@@ -64,16 +64,13 @@ def get_icd_dict():
     if _icd_dict is not None:
         return _icd_dict
     try:
-        import pandas as pd
-        csv_path = r'D:\KERJAAN PUSBIKES\Audit Koding 2025\MRCONSO - mrconso_20250326check.csv'
-        df = pd.read_csv(csv_path, usecols=['CODE', 'STR', 'SAB'], dtype=str)
-        # Filter for ICD10 and ICD9CM
-        df = df[df['SAB'].isin(['ICD10_2010', 'ICD9CM_2010'])]
-        # Drop duplicates keeping last
-        df = df.dropna(subset=['CODE', 'STR']).drop_duplicates(subset=['CODE'], keep='last')
-        _icd_dict = dict(zip(df['CODE'], df['STR']))
+        import json
+        import os
+        path = os.path.join(BASE_DIR, 'rules', 'icd_dict.json')
+        with open(path, 'r', encoding='utf-8') as f:
+            _icd_dict = json.load(f)
     except Exception as e:
-        print(f"[DataLoader] Warning: Could not load MRCONSO CSV: {e}")
+        print(f"[DataLoader] Warning: Could not load icd_dict.json: {e}")
         _icd_dict = {}
     return _icd_dict
 
@@ -183,6 +180,10 @@ def get_hospital_list(sample_only=False):
     merged = merged.drop(columns=['cmi_num'])
     
     if sample_only:
+        # Explicitly filter out RS EMC PULOMAS (3172495) because it only has 16 cases in the raw data,
+        # ensuring we get a clean 40 * 50 = 2000 cases.
+        merged = merged[merged['kode_rs'].astype(str) != '3172495']
+        
         # Filter 20 P and 20 S
         p_hospitals = merged[merged['pemilik'].str.upper() == 'P'].head(20)
         s_hospitals = merged[merged['pemilik'].str.upper() == 'S'].head(20)

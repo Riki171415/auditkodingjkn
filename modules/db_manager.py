@@ -67,7 +67,8 @@ def save_kkr_dr01(sep, data):
     # Store all form data in tindakan_reviewer as JSON
     form_data_json = json.dumps({
         'analisis_reviewer': data.get('analisis_reviewer', ''),
-        'keputusan': data.get('keputusan', ''),
+        'keputusan': data.get('keputusan_reviewer') or data.get('keputusan', ''),
+        'tingkat_keyakinan': data.get('tingkat_keyakinan', ''),
         'alasan_keputusan': data.get('alasan_keputusan', ''),
         'catatan_tambahan': data.get('catatan_tambahan', ''),
         'reviewer_name': data.get('reviewer_name', ''),
