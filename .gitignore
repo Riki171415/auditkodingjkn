@@ -38,6 +38,7 @@ venv.bak/
 # Database and Large Files
 *.sqlite3
 *.db
+!data.db
 *.csv
 *.xlsx
 *.xls
