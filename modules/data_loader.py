@@ -327,6 +327,10 @@ def get_scatter_data():
     df_ind = load_individual_data()
     df_cmi, _ = load_cmi_data()
     
+    # Convert to numeric before aggregation
+    df_ind['cmi'] = pd.to_numeric(df_ind['cmi'], errors='coerce').fillna(0)
+    df_ind['alos'] = pd.to_numeric(df_ind['alos'], errors='coerce').fillna(0)
+    
     # Aggregate from individual data
     agg = df_ind.groupby(['kode_rs', 'nama_rs']).agg(
         avg_cmi=('cmi', 'mean'),
