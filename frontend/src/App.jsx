@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Building2, ClipboardCheck, BriefcaseMedical, FileText } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Hospitals from './pages/Hospitals';
@@ -59,7 +59,7 @@ function Layout({ children }) {
 
 function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -72,7 +72,7 @@ function App() {
           <Route path="/laporan" element={<Reports />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+    </Router>
   );
 }
 
