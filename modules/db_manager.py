@@ -40,24 +40,31 @@ def save_kkr_dr01(sep, data):
     cursor = conn.cursor()
     
     kode_rs = data.get('kode_rs', '')
-    reviewer_name = data.get('reviewerName', '')
-    catatan = data.get('catatan', '')
-    kesimpulan = data.get('kesimpulan', '')
-    tindakan_reviewer = data.get('tindakan_reviewer', '')
+    reviewer_name = data.get('reviewer_name', '')
+    
+    # Store all form data in tindakan_reviewer as JSON
+    form_data_json = json.dumps({
+        'analisis_reviewer': data.get('analisis_reviewer', ''),
+        'keputusan': data.get('keputusan', ''),
+        'alasan_keputusan': data.get('alasan_keputusan', ''),
+        'catatan_tambahan': data.get('catatan_tambahan', ''),
+        'reviewer_name': data.get('reviewer_name', ''),
+        'tanggal_review': data.get('tanggal_review', ''),
+        'ketua_tim_name': data.get('ketua_tim_name', '')
+    }, ensure_ascii=False)
+    
     triggered_rules_json = json.dumps(data.get('triggered_rules', []), ensure_ascii=False)
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     cursor.execute('''
-    INSERT INTO kkr_dr01 (sep, kode_rs, reviewer_name, catatan, kesimpulan, tindakan_reviewer, triggered_rules_json, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO kkr_dr01 (sep, kode_rs, reviewer_name, tindakan_reviewer, triggered_rules_json, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(sep) DO UPDATE SET
         reviewer_name=excluded.reviewer_name,
-        catatan=excluded.catatan,
-        kesimpulan=excluded.kesimpulan,
         tindakan_reviewer=excluded.tindakan_reviewer,
         triggered_rules_json=excluded.triggered_rules_json,
         updated_at=excluded.updated_at
-    ''', (sep, kode_rs, reviewer_name, catatan, kesimpulan, tindakan_reviewer, triggered_rules_json, updated_at))
+    ''', (sep, kode_rs, reviewer_name, form_data_json, triggered_rules_json, updated_at))
     
     conn.commit()
     conn.close()
@@ -72,7 +79,13 @@ def load_kkr_dr01(sep):
     conn.close()
     
     if row:
-        return dict(row)
+        row_dict = dict(row)
+        try:
+            form_data = json.loads(row_dict.get('tindakan_reviewer') or '{}')
+        except:
+            form_data = {}
+        row_dict['form_data'] = form_data
+        return row_dict
     return None
 
 # Initialize on module import
