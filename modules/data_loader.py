@@ -327,47 +327,80 @@ def get_dashboard_stats():
     }
 
 def get_scatter_data():
-    """Get aggregated data for Casemix Scatter Plot via SQL"""
-    conn = get_db_connection()
+    """Get full population Casemix Scatter Plot data directly from df_cmi"""
     df_cmi, _ = load_cmi_data()
     
-    if not conn:
-        return []
+    if df_cmi is None or df_cmi.empty:
+        return {'points': [], 'boundaries': {}, 'insights': {}}
         
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT 
-            kode_rs, 
-            nama_rs, 
-            AVG(CAST(cmi AS FLOAT)) as avg_cmi, 
-            AVG(CAST(alos AS FLOAT)) as avg_alos, 
-            COUNT(sep) as total_kasus
-        FROM individual_data
-        GROUP BY kode_rs, nama_rs
-    ''')
+    # Ensure numeric
+    cmi_series = pd.to_numeric(df_cmi['cmi'], errors='coerce').dropna()
     
-    agg = [dict(row) for row in cursor.fetchall()]
-    conn.close()
+    # Calculate boundaries
+    mean_cmi = cmi_series.mean()
+    std_cmi = cmi_series.std()
+    atas_2sd = mean_cmi + (2 * std_cmi)
+    bawah_2sd = mean_cmi - (2 * std_cmi)
     
-    # Convert df_cmi audit status to dict for O(1) lookup
-    cmi_dict = df_cmi.set_index('kode_rs')['Audit_2SD'].to_dict()
+    q1 = cmi_series.quantile(0.25)
+    q3 = cmi_series.quantile(0.75)
+    iqr = q3 - q1
+    atas_iqr = q3 + (1.5 * iqr)
+    bawah_iqr = q1 - (1.5 * iqr)
     
-    data = []
-    for row in agg:
-        kode_rs = row['kode_rs']
-        status = cmi_dict.get(kode_rs, 'N/A')
-        if pd.isna(status):
-            status = 'N/A'
+    boundaries = {
+        'mean_cmi': float(mean_cmi),
+        'atas_2sd': float(atas_2sd),
+        'bawah_2sd': float(bawah_2sd),
+        'atas_iqr': float(atas_iqr),
+        'bawah_iqr': float(bawah_iqr)
+    }
+    
+    points = []
+    outlier_2sd_count = 0
+    outlier_iqr_count = 0
+    
+    for _, row in df_cmi.iterrows():
+        cmi_val = float(row.get('cmi', 0)) if pd.notna(row.get('cmi')) else 0
+        if cmi_val <= 0:
+            continue
             
-        color = '#EB5757' if status == 'Audit' else ('#27AE60' if status == 'Aman' else '#0B2545')
-        data.append({
-            'kode_rs': kode_rs,
-            'nama_rs': row['nama_rs'],
-            'x': float(row['avg_cmi'] or 0),
-            'y': float(row['avg_alos'] or 0),
-            'z': int(row['total_kasus'] or 0),
+        status_2sd = str(row.get('Audit_2SD', ''))
+        status_iqr = str(row.get('Audit_IQR', ''))
+        
+        is_2sd = status_2sd.lower() == 'audit'
+        is_iqr = status_iqr.lower() == 'audit'
+        
+        if is_2sd:
+            status = 'Outlier 2SD'
+            color = '#EB5757'
+            outlier_2sd_count += 1
+        elif is_iqr:
+            status = 'Outlier IQR'
+            color = '#F39C12'
+            outlier_iqr_count += 1
+        else:
+            status = 'Inlier (Normal)'
+            color = '#3498DB'
+            
+        points.append({
+            'kode_rs': row.get('kode_rs', ''),
+            'nama_rs': row.get('nama_rs', ''),
+            'x': cmi_val,
+            'y': float(row.get('alos', 0)) if pd.notna(row.get('alos')) else 0,
+            'z': int(row.get('jumlah_kasus', 1)) if pd.notna(row.get('jumlah_kasus')) else 1,
             'status': status,
             'fill': color
         })
         
-    return data
+    insights = {
+        'total_rs': len(points),
+        'outlier_2sd_count': outlier_2sd_count,
+        'outlier_iqr_count': outlier_iqr_count
+    }
+    
+    return {
+        'points': points,
+        'boundaries': boundaries,
+        'insights': insights
+    }

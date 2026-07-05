@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { Activity, Building, FileSpreadsheet, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ReferenceLine, ReferenceArea } from 'recharts';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [scatter, setScatter] = useState([]);
+  const [scatterMeta, setScatterMeta] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,7 +16,16 @@ export default function Dashboard() {
       axios.get('/api/dashboard/scatter')
     ]).then(([resStats, resScatter]) => {
       setStats(resStats.data.data);
-      setScatter(resScatter.data.data);
+      if (resScatter.data.data.points) {
+        setScatter(resScatter.data.data.points);
+        setScatterMeta({
+          boundaries: resScatter.data.data.boundaries || {},
+          insights: resScatter.data.data.insights || {}
+        });
+      } else {
+        // Fallback for old API payload format
+        setScatter(resScatter.data.data || []);
+      }
       setLoading(false);
     }).catch(err => {
       console.error(err);
@@ -122,13 +132,37 @@ export default function Dashboard() {
                 tick={{fontSize: 12}} 
                 label={{ value: 'Average Length of Stay (ALOS)', angle: -90, position: 'insideLeft', offset: 10, fontSize: 12, fill: 'var(--text-muted)' }} 
               />
-              <ZAxis type="number" dataKey="z" range={[20, 400]} name="Volume Kasus" />
+              <ZAxis type="number" dataKey="z" range={[10, 200]} name="Volume Kasus" />
               <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
-              <Scatter name="Rumah Sakit" data={scatter} opacity={0.8} />
+              
+              {scatterMeta?.boundaries?.mean_cmi && (
+                <>
+                  <ReferenceArea x1={scatterMeta.boundaries.bawah_2sd} x2={scatterMeta.boundaries.atas_2sd} fill="#27AE60" fillOpacity={0.05} />
+                  <ReferenceLine x={scatterMeta.boundaries.bawah_2sd} stroke="#EB5757" strokeDasharray="3 3" label={{ position: 'insideBottomLeft', value: 'Batas Bawah 2SD', fill: '#EB5757', fontSize: 11 }} />
+                  <ReferenceLine x={scatterMeta.boundaries.atas_2sd} stroke="#EB5757" strokeDasharray="3 3" label={{ position: 'insideBottomRight', value: 'Batas Atas 2SD', fill: '#EB5757', fontSize: 11 }} />
+                  <ReferenceLine x={scatterMeta.boundaries.mean_cmi} stroke="#3498DB" strokeOpacity={0.5} label={{ position: 'insideTop', value: 'Rata-rata CMI', fill: '#3498DB', fontSize: 11 }} />
+                </>
+              )}
+              
+              <Scatter name="Rumah Sakit" data={scatter} opacity={0.65} isAnimationActive={false} />
             </ScatterChart>
           </ResponsiveContainer>
         </div>
       </div>
+
+      {scatterMeta?.insights && (
+        <div className="glass-panel" style={{ padding: 24, marginTop: 24, borderLeft: '4px solid var(--kmk-cyan)' }}>
+          <h3 style={{ margin: 0, marginBottom: 8, color: 'var(--kmk-navy)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Activity size={20} color="var(--kmk-cyan)"/> Insight Analisis Casemix
+          </h3>
+          <p style={{ margin: 0, color: 'var(--text-main)', lineHeight: '1.6' }}>
+            Dari total populasi <strong>{scatterMeta.insights.total_rs?.toLocaleString('id-ID')}</strong> Fasilitas Kesehatan di seluruh Indonesia, 
+            rata-rata nasional Casemix Index (CMI) berada di angka <strong>{scatterMeta.boundaries.mean_cmi?.toFixed(2)}</strong>. 
+            Secara statistik, terdapat <strong>{scatterMeta.insights.outlier_2sd_count} RS</strong> yang menembus batas kewajaran 2SD (Standar Deviasi) dan 
+            <strong> {scatterMeta.insights.outlier_iqr_count} RS</strong> menembus batas IQR. Rumah Sakit yang berada di area batas luar ini dikategorikan sebagai <em>Outlier</em> (warna merah/oranye pada grafik di atas) dan direkomendasikan untuk ditarik sebagai sampel Audit pada tahap berikutnya.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
