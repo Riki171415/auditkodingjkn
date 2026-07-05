@@ -22,7 +22,9 @@ from data_loader import (
 )
 from rule_engine import validate_case, validate_batch_by_rs, get_validation_summary, determine_recommendation
 
-app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')
+app = Flask(__name__, static_folder=FRONTEND_DIST, static_url_path='')
 CORS(app)
 app.config['JSON_ENSURE_ASCII'] = False
 
