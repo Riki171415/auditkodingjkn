@@ -669,7 +669,7 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
             Paragraph(desc, code_style)
         ])
 
-    dx_table = Table(dx_rows, colWidths=[0.8*cm, 4.6*cm, 4.6*cm])
+    dx_table = Table(dx_rows, colWidths=[1*cm, 9*cm, 9*cm])
     dx_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0369A1')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -694,7 +694,7 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
             Paragraph(desc, bold_style if code else muted_style)
         ])
 
-    px_table = Table(px_rows, colWidths=[0.8*cm, 4.6*cm, 4.6*cm])
+    px_table = Table(px_rows, colWidths=[1*cm, 9*cm, 9*cm])
     px_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#6D28D9')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -706,15 +706,16 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
 
-    # Side by side
-    side_by_side = Table([[dx_table, px_table]], colWidths=[10*cm, 9*cm])
-    side_by_side.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    story.append(side_by_side)
-    story.append(Spacer(1, 6))
+    # Render sequentially to allow page splitting for patients with massive diag/proc lists
+    story.append(Paragraph("Daftar Diagnosa", subheader_style))
+    story.append(Spacer(1, 2))
+    story.append(dx_table)
+    story.append(Spacer(1, 8))
+    
+    story.append(Paragraph("Daftar Prosedur", subheader_style))
+    story.append(Spacer(1, 2))
+    story.append(px_table)
+    story.append(Spacer(1, 10))
 
     # === Section 4: Ringkasan Temuan ===
     story.append(section_hdr("4.  RINGKASAN TEMUAN (HASIL VALIDASI OTOMATIS BERDASARKAN RULE)"))
