@@ -79,11 +79,11 @@ export default function Hospitals() {
                     </div>
                   </td>
                   <td>{rs.regional || '-'}</td>
-                  <td>{rs.total_kasus ? parseInt(rs.total_kasus).toLocaleString('id-ID') : '-'}</td>
+                  <td>{rs.jumlah_kasus ? parseInt(rs.jumlah_kasus).toLocaleString('id-ID') : '-'}</td>
                   <td>
-                    {rs.cmi_info?.Audit_2SD === 'Audit' ? (
+                    {rs.Audit_2SD === 'Audit' ? (
                       <span className="badge badge-danger">Perlu Audit</span>
-                    ) : rs.cmi_info?.Audit_2SD === 'Aman' ? (
+                    ) : rs.Audit_2SD === 'Aman' ? (
                       <span className="badge badge-success">Aman</span>
                     ) : (
                       <span className="badge badge-info">N/A</span>
