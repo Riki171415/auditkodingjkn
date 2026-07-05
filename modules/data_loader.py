@@ -396,6 +396,22 @@ def get_dashboard_stats(sample_only=False):
     
     conn.close()
     
+    # Calculate CMI metrics
+    cmi_metrics = {}
+    if not df_cmi.empty:
+        df_cmi['casemix_num'] = pd.to_numeric(df_cmi['casemix'], errors='coerce').fillna(0)
+        df_cmi['kasus_num'] = pd.to_numeric(df_cmi['jumlah_kasus'], errors='coerce').fillna(0)
+        
+        tot_casemix = df_cmi['casemix_num'].sum()
+        tot_kasus = df_cmi['kasus_num'].sum()
+        cmi_metrics['Nasional'] = (tot_casemix / tot_kasus) if tot_kasus > 0 else 0
+        
+        for cls in ['A', 'B', 'C', 'D']:
+            df_cls = df_cmi[df_cmi['KELAS'].str.upper() == cls]
+            c_casemix = df_cls['casemix_num'].sum()
+            c_kasus = df_cls['kasus_num'].sum()
+            cmi_metrics[f'Kelas {cls}'] = (c_casemix / c_kasus) if c_kasus > 0 else 0
+    
     return {
         'total_rs': total_rs,
         'total_kasus': total_kasus,
@@ -407,6 +423,7 @@ def get_dashboard_stats(sample_only=False):
         'regional_dist': regional_dist,
         'kelas_dist': kelas_dist,
         'top_rs_selisih': top_rs,
+        'cmi_metrics': cmi_metrics,
         'tabel_cmi': {}
     }
 
@@ -474,6 +491,7 @@ def get_scatter_data(sample_only=False):
         points.append({
             'kode_rs': row.get('kode_rs', ''),
             'nama_rs': row.get('nama_rs', ''),
+            'kelas': row.get('KELAS', ''),
             'x': cmi_val,
             'y': float(row.get('alos', 0)) if pd.notna(row.get('alos')) else 0,
             'z': int(row.get('jumlah_kasus', 1)) if pd.notna(row.get('jumlah_kasus')) else 1,
