@@ -627,6 +627,29 @@ def api_laporan_rekapitulasi():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/reports/export-word/<kode_rs>')
+def export_word_lha(kode_rs):
+    from modules.db_manager import get_recap_desk_review
+    from modules.export_generator import generate_lha_word
+    from flask import send_file
+    import tempfile
+    
+    dr_data = get_recap_desk_review()
+    cases = [c for c in dr_data if c['kode_rs'] == kode_rs]
+    
+    if not cases:
+        return jsonify({'success': False, 'message': 'Tidak ada data untuk RS tersebut'}), 404
+        
+    rs_name = cases[0]['nama_rs']
+    safe_name = rs_name.replace('/', '_').replace('\\', '_').replace(' ', '_')
+    filename = f"LHA_{kode_rs}_{safe_name}.docx"
+    
+    tmp_path = os.path.join(tempfile.gettempdir(), filename)
+    generate_lha_word(kode_rs, rs_name, cases, tmp_path)
+    
+    return send_file(tmp_path, as_attachment=True, download_name=filename)
+
+
 if __name__ == '__main__':
     print("=" * 60)
     print("  APLIKASI AUDIT KODING INA-CBG / iDRG 2025")

@@ -40,7 +40,7 @@ export default function Reports() {
       actualFilename = `${filename}_RS_${rsName}`;
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,";
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
     
     // Define headers based on report type
     let headers = [];
@@ -120,6 +120,16 @@ export default function Reports() {
               <option key={rs.kode_rs} value={rs.kode_rs}>{rs.nama_rs} ({rs.kode_rs})</option>
             ))}
           </select>
+          {selectedHospital !== 'ALL' && (
+            <a 
+              className="btn btn-secondary" 
+              href={`/api/reports/export-word/${selectedHospital}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <FileSpreadsheet size={16} /> Cetak LHA (Word)
+            </a>
+          )}
           <button className="btn btn-primary" onClick={() => exportCSV(drData, 'Rekap_DeskReview_KKR-DR01', 'dr')}>
             <Download size={16} /> Export CSV (Excel)
           </button>

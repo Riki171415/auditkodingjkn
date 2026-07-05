@@ -46,6 +46,13 @@ def generate_dummy_data():
         print("No individual data found!")
         return
 
+    # Delete existing KKR-DR01 to start fresh
+    conn = get_audit_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM kkr_dr01")
+    conn.commit()
+    conn.close()
+
     total_generated = 0
     conn = get_audit_db()
 
@@ -55,22 +62,36 @@ def generate_dummy_data():
         
         rs_data = df_ind[df_ind['kode_rs'] == str(kode_rs)].copy()
         rs_data['rules'] = rs_data.apply(lambda row: validate_case(row.to_dict()), axis=1)
+        # Filter cases with audit findings (rules > 0)
         cases_with_findings = rs_data[rs_data['rules'].apply(lambda x: len(x) > 0)]
+        cases_clean = rs_data[rs_data['rules'].apply(lambda x: len(x) == 0)]
+        
         target_cases = cases_with_findings.head(50).to_dict('records')
         
+        # If less than 50, pad with clean cases
+        if len(target_cases) < 50:
+            shortfall = 50 - len(target_cases)
+            padding_cases = cases_clean.head(shortfall).to_dict('records')
+            target_cases.extend(padding_cases)
+        
         for case in target_cases:
-            rules = case['rules']
+            rules = case.get('rules', [])
             sep = case['sep']
             
-            priorities = [r.get('priority', 'Low') for r in rules]
-            has_high = 'Kritis' in priorities or 'Tinggi' in priorities
-            
-            if has_high:
-                keputusan = 'Direkomendasikan On-Site Audit'
-                rekomendasi = 'Kasus ini memiliki temuan kritis/tinggi dan memerlukan investigasi rekam medis fisik.'
+            if len(rules) == 0:
+                keputusan = 'Sesuai Aturan'
+                rekomendasi = 'Tidak ada temuan. Klaim sesuai.'
+                has_high = False
             else:
-                keputusan = 'Perlu Monitoring'
-                rekomendasi = 'Terdapat temuan administrasi/koding ringan, perlu pengawasan pada klaim bulan berikutnya.'
+                priorities = [r.get('priority', 'Low') for r in rules]
+                has_high = 'Kritis' in priorities or 'Tinggi' in priorities
+                
+                if has_high:
+                    keputusan = 'Direkomendasikan On-Site Audit'
+                    rekomendasi = 'Kasus ini memiliki temuan kritis/tinggi dan memerlukan investigasi rekam medis fisik.'
+                else:
+                    keputusan = 'Perlu Monitoring'
+                    rekomendasi = 'Terdapat temuan administrasi/koding ringan, perlu pengawasan pada klaim bulan berikutnya.'
                 
             reviewer = random.choice(REVIEWER_NAMES)
             tgl = generate_random_date()
