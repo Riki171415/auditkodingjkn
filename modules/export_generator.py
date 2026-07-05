@@ -13,6 +13,15 @@ from modules.data_loader import get_icd_dict
 from modules.db_manager import get_audit_db
 from modules.rule_engine import validate_case
 
+def get_icd_desc_robust(code, icd_dict):
+    if not code: return '-'
+    c = str(code).strip()
+    while len(c) >= 3:
+        if c in icd_dict: return icd_dict[c]
+        if c.replace('.', '') in icd_dict: return icd_dict[c.replace('.', '')]
+        c = c[:-1]
+    return '-'
+
 # --- QR Code ---
 try:
     import qrcode
@@ -351,8 +360,8 @@ def export_kkr_dr01_excel(kkr_data, validate_data=None):
         p_code = proc_codes[i] if i < len(proc_codes) else ''
         is_triggered = d_code in triggered_codes
         
-        d_desc = f"{d_code} - {icd_dict.get(d_code) or icd_dict.get(d_code.replace('.', '')) or '-'}" if d_code else ''
-        p_desc = f"{p_code} - {icd_dict.get(p_code) or icd_dict.get(p_code.replace('.', '')) or '-'}" if p_code else ''
+        d_desc = f"{d_code} - {get_icd_desc_robust(d_code, icd_dict)}" if d_code else ''
+        p_desc = f"{p_code} - {get_icd_desc_robust(p_code, icd_dict)}" if p_code else ''
 
         row_data = [i+1, d_desc, d_desc, i+1, p_desc, p_desc]
         for ci, val in enumerate(row_data, 1):
@@ -652,7 +661,7 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
         code_style = ParagraphStyle('CodeTrig', fontName='Helvetica-Bold', fontSize=8,
                                     textColor=colors.HexColor('#DC2626')) if is_trig else bold_style
         
-        desc = f"{code} - {icd_dict.get(code) or icd_dict.get(code.replace('.', '')) or '-'}" if code else ''
+        desc = f"{code} - {get_icd_desc_robust(code, icd_dict)}" if code else ''
         
         dx_rows.append([
             Paragraph(str(i+1), normal_style),
@@ -678,7 +687,7 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
     ]]
     for i in range(max_px):
         code = proc_codes[i] if i < len(proc_codes) else ''
-        desc = f"{code} - {icd_dict.get(code) or icd_dict.get(code.replace('.', '')) or '-'}" if code else ''
+        desc = f"{code} - {get_icd_desc_robust(code, icd_dict)}" if code else ''
         px_rows.append([
             Paragraph(str(i+1), normal_style),
             Paragraph(desc, bold_style if code else muted_style),

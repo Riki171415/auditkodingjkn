@@ -243,14 +243,20 @@ export default function Reports() {
 
   const renderLaporanAkhir = () => (
     <div className="fade-in" style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:40, textAlign:'center' }}>
-      <FileSpreadsheet size={64} color="var(--kmk-cyan)" style={{ marginBottom: 16, opacity: 0.5 }} />
-      <h2 style={{ color: 'var(--kmk-navy)', margin: '0 0 8px 0' }}>Laporan Rekonsiliasi Akhir</h2>
-      <p className="text-muted" style={{ maxWidth: 500, margin: '0 auto' }}>
-        Modul ini akan menggabungkan hasil Desk Review dan On-Site Audit secara komprehensif, mengkalkulasi total penghematan/selisih tarif nasional, dan mengekspor dokumen resmi laporan akhir.
+      <FileSpreadsheet size={64} color="var(--kmk-cyan)" style={{ marginBottom: 16 }} />
+      <h2 style={{ color: 'var(--kmk-navy)', margin: '0 0 8px 0' }}>Laporan Akhir Desk Review (Master Excel)</h2>
+      <p className="text-muted" style={{ maxWidth: 600, margin: '0 auto 24px auto' }}>
+        Modul ini akan men-generate dan mengunduh laporan rekapitulasi keseluruhan hasil Desk Review yang terdiri dari Ringkasan Eksekutif per Rumah Sakit dan Master Data Rincian seluruh kasus dalam format Excel (.xlsx).
       </p>
-      <div className="badge badge-warning" style={{ marginTop: 24, fontSize: 14, padding: '8px 16px' }}>
-        Status: Dalam Tahap Pengembangan (Coming Soon)
-      </div>
+      <button 
+        className="btn btn-primary"
+        onClick={() => {
+          window.location.href = '/api/export/laporan-akhir';
+        }}
+        style={{ padding: '12px 24px', fontSize: 16 }}
+      >
+        <Download size={20} /> Unduh Master Excel Laporan Akhir
+      </button>
     </div>
   );
 

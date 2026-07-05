@@ -17,7 +17,7 @@ def generate_recap_excel():
     
     if not dr_data:
         print("Data kosong. Tidak ada yang diekspor.")
-        return
+        return None
         
     master_data = []
     for row in dr_data:
@@ -122,6 +122,7 @@ def generate_recap_excel():
                 worksheet.column_dimensions[col_letter].width = min(max_length + 2, 50)
                 
     print(f"SELESAI! Laporan akhir berhasil disimpan di: {filepath}")
+    return filepath
 
 if __name__ == '__main__':
     generate_recap_excel()

@@ -64,10 +64,16 @@ def get_icd_dict():
     if _icd_dict is not None:
         return _icd_dict
     try:
-        with open(r'D:\SAK-iDRG\dist\data\icd_fallback.json', 'r', encoding='utf-8') as f:
-            _icd_dict = json.load(f)
+        import pandas as pd
+        csv_path = r'D:\KERJAAN PUSBIKES\Audit Koding 2025\MRCONSO - mrconso_20250326check.csv'
+        df = pd.read_csv(csv_path, usecols=['CODE', 'STR', 'SAB'], dtype=str)
+        # Filter for ICD10 and ICD9CM
+        df = df[df['SAB'].isin(['ICD10_2010', 'ICD9CM_2010'])]
+        # Drop duplicates keeping last
+        df = df.dropna(subset=['CODE', 'STR']).drop_duplicates(subset=['CODE'], keep='last')
+        _icd_dict = dict(zip(df['CODE'], df['STR']))
     except Exception as e:
-        print(f"[DataLoader] Warning: Could not load icd_fallback.json: {e}")
+        print(f"[DataLoader] Warning: Could not load MRCONSO CSV: {e}")
         _icd_dict = {}
     return _icd_dict
 

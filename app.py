@@ -649,6 +649,20 @@ def export_word_lha(kode_rs):
     
     return send_file(tmp_path, as_attachment=True, download_name=filename)
 
+@app.route('/api/export/laporan-akhir')
+def export_laporan_akhir():
+    try:
+        from generate_recap_desk_review import generate_recap_excel
+        filepath = generate_recap_excel()
+        if not filepath or not os.path.exists(filepath):
+            return jsonify({'success': False, 'message': 'Gagal generate laporan akhir atau data kosong'})
+            
+        filename = os.path.basename(filepath)
+        return send_file(filepath, as_attachment=True, download_name=filename)
+    except Exception as e:
+        print(f"Error generating laporan akhir: {e}")
+        return jsonify({'success': False, 'message': str(e)})
+
 
 if __name__ == '__main__':
     print("=" * 60)
