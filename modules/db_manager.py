@@ -168,11 +168,13 @@ def get_recap_desk_review():
             'kelas': row['kelas'],
             'reviewer_name': row['reviewer_name'],
             'tanggal': row['updated_at'],
+            'updated_at': row['updated_at'],
             'inacbg': row['inacbg'],
             'tarif_inacbg': row['tarif_inacbg'],
             'tarif_rs': row['tarif_rs'],
             'keputusan': fd.get('keputusan', '-'),
-            'rekomendasi_lanjut': fd.get('rekomendasi_lanjut', '-')
+            'rekomendasi_lanjut': fd.get('rekomendasi_lanjut', '-'),
+            'tindakan_reviewer': row.get('tindakan_reviewer')
         })
     return recap
 
