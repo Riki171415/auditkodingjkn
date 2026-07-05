@@ -30,8 +30,8 @@ export default function Hospitals() {
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h1 className="text-gradient" style={{ fontSize: '24px' }}>Daftar RS Sampel Audit</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Pilih Rumah Sakit untuk melakukan proses validasi dan Kertas Kerja Reviewer (KKR)</p>
+          <h1 className="text-gradient" style={{ fontSize: '24px' }}>Tahap 2: Penetapan Sasaran RS</h1>
+          <p style={{ color: 'var(--text-muted)' }}>RS yang berada di zona outlier (Merah) otomatis menjadi prioritas audit.</p>
         </div>
         
         <div style={{ position: 'relative', width: 300 }}>
@@ -90,8 +90,8 @@ export default function Hospitals() {
                     )}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <Link to={`/desk-review/${rs.kode_rs}`} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                      Buka Review <ChevronRight size={14} />
+                    <Link to={`/desk-review/${rs.kode_rs}`} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                      Mulai Desk Review (Tahap 3) <ChevronRight size={14} />
                     </Link>
                   </td>
                 </tr>

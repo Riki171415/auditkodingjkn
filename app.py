@@ -59,6 +59,17 @@ def api_dashboard_stats():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/dashboard/scatter')
+def api_dashboard_scatter():
+    try:
+        from modules.data_loader import get_scatter_data
+        data = get_scatter_data()
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # ============================================================
 # API - Hospitals

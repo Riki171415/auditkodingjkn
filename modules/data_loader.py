@@ -321,3 +321,38 @@ def get_dashboard_stats():
         'top_rs_selisih': top_rs,
         'tabel_cmi': tabel_values
     }
+
+def get_scatter_data():
+    """Get aggregated data for Casemix Scatter Plot"""
+    df_ind = load_individual_data()
+    df_cmi, _ = load_cmi_data()
+    
+    # Aggregate from individual data
+    agg = df_ind.groupby(['kode_rs', 'nama_rs']).agg(
+        avg_cmi=('cmi', 'mean'),
+        avg_alos=('alos', 'mean'),
+        total_kasus=('sep', 'count')
+    ).reset_index()
+    
+    # Merge with CMI audit status
+    cmi_status = df_cmi[['kode_rs', 'Audit_2SD', 'Audit_IQR']]
+    merged = pd.merge(agg, cmi_status, on='kode_rs', how='left')
+    
+    # Fill N/A and convert to dict
+    merged['Audit_2SD'] = merged['Audit_2SD'].fillna('N/A')
+    
+    # Format for JSON
+    data = []
+    for _, row in merged.iterrows():
+        status = row['Audit_2SD']
+        color = '#EB5757' if status == 'Audit' else ('#27AE60' if status == 'Aman' else '#0B2545')
+        data.append({
+            'kode_rs': row['kode_rs'],
+            'nama_rs': row['nama_rs'],
+            'x': float(row['avg_cmi']) if pd.notna(row['avg_cmi']) else 0,
+            'y': float(row['avg_alos']) if pd.notna(row['avg_alos']) else 0,
+            'z': int(row['total_kasus']),
+            'status': status,
+            'fill': color
+        })
+    return data
