@@ -209,30 +209,63 @@ export default function KKRForm() {
 
         {/* SECTION 3 */}
         <div className="kkr-section-header" style={{ marginTop: 12 }}>3. INPUT DATA KLAIM (BERDASARKAN DATA KLAIM DATA CENTER)</div>
+        <div style={{ fontSize: 10, fontWeight: 'bold', marginTop: 6, marginBottom: 2, color: '#0e3c6c' }}>3.1 DIAGNOSA</div>
         <table className="kkr-data-table kkr-full-border kkr-grid-table">
           <thead>
             <tr>
               <th rowSpan="2" width="4%" className="kkr-th-light">No.</th>
-              <th colSpan="2" width="48%" className="kkr-th-light">DIAGNOSA</th>
-              <th colSpan="2" width="48%" className="kkr-th-light">PROSEDUR</th>
+              <th colSpan="2" width="48%" className="kkr-th-light">INA-CBG</th>
+              <th colSpan="2" width="48%" className="kkr-th-light">iDRG</th>
             </tr>
             <tr>
-              <th className="kkr-th-light" width="15%">INA-CBG / iDRG<br/>Kode ICD</th>
+              <th className="kkr-th-light" width="15%">Kode ICD</th>
               <th className="kkr-th-light">Deskripsi</th>
-              <th className="kkr-th-light" width="15%">INA-CBG / iDRG<br/>Kode ICD-9-CM</th>
+              <th className="kkr-th-light" width="15%">Kode ICD</th>
               <th className="kkr-th-light">Deskripsi</th>
             </tr>
           </thead>
           <tbody>
-            {[...Array(10)].map((_, i) => (
-              <tr key={`diagproc-${i}`}>
+            {[...Array(10)].map((_, i) => {
+              const diag_idrg = data.case.diaglist_idrg ? data.case.diaglist_idrg.split(';') : diags;
+              return (
+              <tr key={`diag-${i}`}>
                 <td style={{ textAlign: 'center' }}>{i + 1}</td>
                 <td style={{ textAlign: 'center', fontFamily: 'monospace' }}>{diags[i] || ''}</td>
                 <td style={{ fontSize: 9 }}>{diags[i] ? (data.case.icd_desc_map?.[diags[i]] || '-') : '-'}</td>
+                <td style={{ textAlign: 'center', fontFamily: 'monospace' }}>{diag_idrg[i] || ''}</td>
+                <td style={{ fontSize: 9 }}>{diag_idrg[i] ? (data.case.icd_desc_map?.[diag_idrg[i]] || '-') : '-'}</td>
+              </tr>
+            )})}
+          </tbody>
+        </table>
+
+        <div style={{ fontSize: 10, fontWeight: 'bold', marginTop: 10, marginBottom: 2, color: '#0e3c6c' }}>3.2 PROSEDUR</div>
+        <table className="kkr-data-table kkr-full-border kkr-grid-table">
+          <thead>
+            <tr>
+              <th rowSpan="2" width="4%" className="kkr-th-light">No.</th>
+              <th colSpan="2" width="48%" className="kkr-th-light">INA-CBG</th>
+              <th colSpan="2" width="48%" className="kkr-th-light">iDRG</th>
+            </tr>
+            <tr>
+              <th className="kkr-th-light" width="15%">Kode ICD-9-CM</th>
+              <th className="kkr-th-light">Deskripsi</th>
+              <th className="kkr-th-light" width="15%">Kode ICD-9-CM</th>
+              <th className="kkr-th-light">Deskripsi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...Array(10)].map((_, i) => {
+              const proc_idrg = data.case.proclist_idrg ? data.case.proclist_idrg.split(';') : procs;
+              return (
+              <tr key={`proc-${i}`}>
+                <td style={{ textAlign: 'center' }}>{i + 1}</td>
                 <td style={{ textAlign: 'center', fontFamily: 'monospace' }}>{procs[i] || ''}</td>
                 <td style={{ fontSize: 9 }}>{procs[i] ? (data.case.icd_desc_map?.[procs[i]] || '-') : '-'}</td>
+                <td style={{ textAlign: 'center', fontFamily: 'monospace' }}>{proc_idrg[i] || ''}</td>
+                <td style={{ fontSize: 9 }}>{proc_idrg[i] ? (data.case.icd_desc_map?.[proc_idrg[i]] || '-') : '-'}</td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
         <div style={{ fontSize: 9, marginTop: 2 }}>Catatan: Isi sesuai urutan yang tercantum pada data klaim.</div>
