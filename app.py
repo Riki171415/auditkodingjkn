@@ -281,34 +281,44 @@ os.makedirs(KKR_STORAGE_DIR, exist_ok=True)
 
 @app.route('/api/kkr-dr01/save', methods=['POST'])
 def api_save_kkr_dr01():
-    """Save KKR-DR01 form data"""
+    """Save KKR-DR01 form data to SQLite"""
     try:
         data = request.get_json()
-        sep = data.get('sep', '').replace('/', '_').replace('\\', '_')
+        sep = data.get('sep', '')
         
-        filepath = os.path.join(KKR_STORAGE_DIR, f'KKR-DR01_{sep}.json')
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        from modules.db_manager import save_kkr_dr01
+        save_kkr_dr01(sep, data)
         
-        return jsonify({'success': True, 'message': 'KKR-DR01 berhasil disimpan'})
+        return jsonify({'success': True, 'message': 'Data berhasil disimpan ke database'})
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/kkr-dr01/load/<sep>')
+@app.route('/api/kkr-dr01/load/<path:sep>')
 def api_load_kkr_dr01(sep):
-    """Load saved KKR-DR01 data"""
+    """Load KKR-DR01 form data from SQLite"""
     try:
-        sep_safe = sep.replace('/', '_').replace('\\', '_')
-        filepath = os.path.join(KKR_STORAGE_DIR, f'KKR-DR01_{sep_safe}.json')
+        from modules.db_manager import load_kkr_dr01
+        data = load_kkr_dr01(sep)
         
-        if os.path.exists(filepath):
-            with open(filepath, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+        if data:
+            # Parse triggered_rules_json back to list for frontend
+            if 'triggered_rules_json' in data and data['triggered_rules_json']:
+                data['triggered_rules'] = json.loads(data['triggered_rules_json'])
+            
+            # Map DB columns to frontend expected fields if needed
+            if 'reviewer_name' in data:
+                data['reviewerName'] = data['reviewer_name']
+                
             return jsonify({'success': True, 'data': data})
         else:
             return jsonify({'success': True, 'data': None})
+            
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
