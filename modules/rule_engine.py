@@ -370,33 +370,47 @@ def check_dual_coding_discrepancy(case_data):
 
     def _build_rows(ina_list, idrg_list):
         rows = []
-        max_len = max(len(ina_list), len(idrg_list), 1)
-        for i in range(max_len):
-            ina_c  = ina_list[i]  if i < len(ina_list)  else ''
-            idrg_c = idrg_list[i] if i < len(idrg_list) else ''
+        matched_idrg_indices = set()
+        
+        # 1. Cari pasangan kode yang cocok (mengabaikan urutan)
+        for ina_c in ina_list:
+            match_found = False
+            for j, idrg_c in enumerate(idrg_list):
+                if j not in matched_idrg_indices and check_code_match(ina_c, idrg_c):
+                    matched_idrg_indices.add(j)
+                    rows.append({
+                        'ina_code': ina_c,
+                        'idrg_code': idrg_c,
+                        'sesuai': True,
+                        'keterangan': 'Kode & Deskripsi sama'
+                    })
+                    match_found = True
+                    break
+            
+            if not match_found:
+                rows.append({
+                    'ina_code': ina_c,
+                    'idrg_code': '',
+                    'sesuai': False,
+                    'keterangan': 'Hanya di INA-CBG'
+                })
+        
+        # 2. Tambahkan sisa kode iDRG yang tidak punya pasangan di INA-CBG
+        for j, idrg_c in enumerate(idrg_list):
+            if j not in matched_idrg_indices:
+                rows.append({
+                    'ina_code': '',
+                    'idrg_code': idrg_c,
+                    'sesuai': False,
+                    'keterangan': 'Hanya di iDRG'
+                })
+        
+        # 3. Beri nomor dan lengkapi deskripsi
+        for i, row in enumerate(rows):
+            row['no'] = i + 1
+            row['ina_desc'] = _get_desc(row['ina_code']) if row['ina_code'] else '-'
+            row['idrg_desc'] = _get_desc(row['idrg_code']) if row['idrg_code'] else '-'
 
-            if ina_c and idrg_c:
-                sesuai = check_code_match(ina_c, idrg_c)
-                ket = 'Kode & Deskripsi sama' if sesuai else 'Kode berbeda'
-            elif ina_c and not idrg_c:
-                sesuai = False
-                ket = 'Hanya di INA-CBG'
-            elif idrg_c and not ina_c:
-                sesuai = False
-                ket = 'Hanya di iDRG'
-            else:
-                sesuai = True
-                ket = '-'
-
-            rows.append({
-                'no': i + 1,
-                'ina_code':  ina_c,
-                'ina_desc':  _get_desc(ina_c)  if ina_c  else '-',
-                'idrg_code': idrg_c,
-                'idrg_desc': _get_desc(idrg_c) if idrg_c else '-',
-                'sesuai':    sesuai,
-                'keterangan': ket,
-            })
         return rows
 
     diag_rows = _build_rows(diag_ina, diag_idrg)
