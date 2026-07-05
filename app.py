@@ -528,6 +528,20 @@ def api_export_dr01_pdf(sep):
     try:
         from modules.export_generator import export_kkr_dr01_pdf
         import io
+        import os
+        from modules.data_loader import get_case_by_sep
+        
+        # Check if pre-generated PDF exists
+        case = get_case_by_sep(sep)
+        if case:
+            rs_name_pre = str(case.get('nama_rs', 'RS')).replace(' ', '_').replace('/', '_').replace('\\', '_')[:40]
+            rs_code_pre = str(case.get('kode_rs', 'UNKNOWN'))
+            rs_folder = f"{rs_code_pre}_{rs_name_pre}"
+            sep_short_pre = str(sep).replace('/', '_').replace('\\', '_')[:20]
+            pregen_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'exports', 'kkr_forms', rs_folder, f"KKR-DR01_{sep_short_pre}.pdf")
+            
+            if os.path.exists(pregen_path):
+                return send_file(pregen_path, mimetype='application/pdf', as_attachment=True, download_name=f"KKR-DR01_{sep_short_pre}.pdf")
         
         sep_safe = sep.replace('/', '_').replace('\\', '_')
         filepath = os.path.join(KKR_STORAGE_DIR, f'KKR-DR01_{sep_safe}.json')

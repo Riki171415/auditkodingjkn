@@ -17,18 +17,18 @@ def fix_narratives():
         
         # Check if this is an auto-generated row
         analisis = tindakan.get('analisis_reviewer', '')
-        if 'Auto-Logic' in str(analisis) or 'Di-generate otomatis' in str(analisis) or not analisis:
+        if 'Auto-Logic' in str(analisis) or 'Di-generate otomatis' in str(analisis) or 'Analisis sistem' in str(analisis) or not analisis:
             
             num_rules = len(rules)
             if num_rules == 0:
-                tindakan['analisis_reviewer'] = "Analisis sistem (Otomatis): Tidak ditemukan anomali atau ketidaksesuaian coding pada kasus ini."
+                tindakan['analisis_reviewer'] = "Tidak ditemukan anomali atau ketidaksesuaian coding pada kasus ini."
                 tindakan['keputusan_reviewer'] = "Sesuai (Terbukti Valid)"
                 tindakan['keputusan'] = "Sesuai (Terbukti Valid)"
-                tindakan['tingkat_keyakinan'] = "Tinggi (Sistem/Otomatis)"
+                tindakan['tingkat_keyakinan'] = "Tinggi"
                 tindakan['alasan_keputusan'] = "Klaim dinilai wajar dan sesuai aturan INA-CBG. Tidak ada flag audit yang terpicu."
                 tindakan['alasan'] = tindakan['alasan_keputusan']
             else:
-                tindakan['analisis_reviewer'] = f"Analisis sistem (Otomatis): Ditemukan {num_rules} potensi anomali/ketidaksesuaian (flag) yang memerlukan tinjauan lebih lanjut."
+                tindakan['analisis_reviewer'] = f"Ditemukan {num_rules} potensi anomali/ketidaksesuaian (flag) yang memerlukan tinjauan lebih lanjut."
                 tindakan['keputusan_reviewer'] = "Menunggu Review Manual"
                 tindakan['keputusan'] = "Menunggu Review Manual"
                 tindakan['tingkat_keyakinan'] = "Menunggu Review"
