@@ -117,6 +117,26 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {stats.cmi_metrics && (
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ margin: '0 0 16px 0', color: 'var(--kmk-navy)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Activity size={20} color="var(--kmk-cyan)" /> Scorecard CMI
+          </h3>
+          <div className="grid-cards" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="glass-panel" style={{ padding: '16px 20px', borderTop: '4px solid var(--kmk-navy)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>Nasional</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--kmk-navy)' }}>{stats.cmi_metrics['Nasional']?.toFixed(4) || '0.0000'}</div>
+            </div>
+            {['A', 'B', 'C', 'D'].map(cls => (
+              <div key={cls} className="glass-panel" style={{ padding: '16px 20px', borderTop: '4px solid var(--kmk-cyan)' }}>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>Kelas {cls}</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--kmk-navy)' }}>{stats.cmi_metrics[`Kelas ${cls}`]?.toFixed(4) || '0.0000'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="glass-panel" style={{ padding: '24px 24px 32px 24px', minHeight: 400 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
@@ -175,6 +195,55 @@ export default function Dashboard() {
             Secara statistik, terdapat <strong>{scatterMeta.insights.outlier_2sd_count} RS</strong> yang menembus batas kewajaran 2SD (Standar Deviasi) dan 
             <strong> {scatterMeta.insights.outlier_iqr_count} RS</strong> menembus batas IQR. Rumah Sakit yang berada di area batas luar ini dikategorikan sebagai <em>Outlier</em> (warna merah/oranye pada grafik di atas) dan direkomendasikan untuk ditarik sebagai sampel Audit pada tahap berikutnya.
           </p>
+        </div>
+      )}
+
+      {scatter && scatter.length > 0 && (
+        <div className="glass-panel" style={{ padding: 24, marginTop: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ margin: 0, color: 'var(--kmk-navy)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Building size={20} color="var(--kmk-cyan)" /> Data Seluruh Rumah Sakit
+            </h3>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Menampilkan {scatter.length} Fasilitas Kesehatan</div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{width: 50}}>No</th>
+                  <th style={{width: 100}}>Kode RS</th>
+                  <th>Nama RS</th>
+                  <th style={{width: 80, textAlign: 'center'}}>Kelas</th>
+                  <th style={{width: 100, textAlign: 'right'}}>Total Kasus</th>
+                  <th style={{width: 100, textAlign: 'right'}}>Rata-rata CMI</th>
+                  <th style={{width: 100, textAlign: 'right'}}>Rata-rata ALOS</th>
+                  <th style={{width: 150}}>Status Outlier</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scatter.map((rs, idx) => (
+                  <tr key={idx}>
+                    <td>{idx + 1}</td>
+                    <td>{rs.kode_rs}</td>
+                    <td style={{fontWeight: 500}}>{rs.nama_rs}</td>
+                    <td style={{textAlign: 'center'}}>{rs.kelas || '-'}</td>
+                    <td style={{textAlign: 'right'}}>{rs.z.toLocaleString('id-ID')}</td>
+                    <td style={{textAlign: 'right', fontWeight: 600}}>{rs.x.toFixed(4)}</td>
+                    <td style={{textAlign: 'right'}}>{rs.y.toFixed(2)}</td>
+                    <td>
+                      <span style={{
+                        padding: '4px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
+                        backgroundColor: rs.status.includes('Outlier') ? '#fee2e2' : '#e0f2fe',
+                        color: rs.status.includes('Outlier') ? '#991b1b' : '#075985'
+                      }}>
+                        {rs.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
