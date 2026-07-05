@@ -18,7 +18,7 @@ export default function DeskReview() {
   useEffect(() => {
     // Load RS Info
     axios.get(`/api/hospitals/${kode_rs}`)
-      .then(res => setInfo(res.data.data))
+      .then(res => setInfo(res.data.data.info))
       .catch(console.error);
   }, [kode_rs]);
 
