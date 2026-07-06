@@ -53,7 +53,7 @@ export default function Dashboard() {
   };
 
   if (loading) return <div className="fade-in"><div className="spinner" style={{width:24,height:24,border:'3px solid var(--kmk-cyan)',borderTopColor:'transparent',borderRadius:'50%'}}></div></div>;
-  if (!stats) return <div>Gagal memuat data</div>;
+  if (!stats || Object.keys(stats).length === 0) return <div>Gagal memuat data. Kemungkinan file data.db tidak ditemukan di server.</div>;
 
   return (
     <div className="fade-in">
