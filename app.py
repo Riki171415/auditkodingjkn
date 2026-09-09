@@ -208,15 +208,22 @@ def api_cases_by_rs(kode_rs):
         if df.empty:
             return jsonify({'success': True, 'data': {'cases': [], 'total': 0}})
             
-        N = len(df)
+        # Get REAL population N from cmi_data
+        df_cmi, _ = load_cmi_data()
+        cmi_row = df_cmi[df_cmi['kode_rs'] == str(kode_rs)]
+        if not cmi_row.empty and 'jumlah_kasus' in cmi_row.columns:
+            try:
+                N = int(cmi_row.iloc[0]['jumlah_kasus'])
+            except:
+                N = len(df)
+        else:
+            N = len(df)
+            
         n = cochran_sample_size(N)
         percentage = round((n/N)*100, 1) if N > 0 else 0
         
-        # Ambil sampel (deterministic)
-        import hashlib
-        seed = int(hashlib.md5(kode_rs.encode()).hexdigest()[:8], 16) % (2**31)
-        if n < N:
-            df = df.sample(n=n, random_state=seed)
+        # We do NOT sample `df` again here, because the SQLite database 
+        # (individual_data) ALREADY contains the sampled cases!
         
         if search:
             mask = (
@@ -298,22 +305,32 @@ def api_case_detail(sep):
 # API - Rule Validation (KKR-DR01)
 # ============================================================
 
-@app.route('/api/validate/<sep>')
+@app.route('/api/validate/<sep>', methods=['GET', 'POST'])
 def api_validate_case(sep):
     """Validate a single case and return KKR-DR01 data"""
     try:
         from rule_engine import (
             check_dual_coding_discrepancy,
             calculate_knavp_score,
-            determine_recommendation_knavp
+            determine_recommendation_knavp,
+            assess_case
         )
 
         case = get_case_by_sep(sep)
         if case is None:
             return jsonify({'success': False, 'error': 'Case not found'}), 404
 
+        # An explicit re-evaluation can supply verified PTD and reviewer evidence.
+        # GET preserves the saved review; POST evaluates without saving it.
+        payload = request.get_json(silent=True) if request.method == 'POST' else {}
+        if payload is None or not isinstance(payload, dict):
+            return jsonify({'success': False, 'error': 'Expected a JSON object'}), 400
+        if request.method == 'POST':
+            case = dict(case, **{k: payload[k] for k in ('ptd', 'rule_assessments') if k in payload})
+
         # Run rule validation
         triggered_rules = validate_case(case)
+        current_assessments = assess_case(case)
         summary = get_validation_summary(triggered_rules)
 
         # Dual coding discrepancy (per-row comparison INA-CBG vs iDRG)
@@ -326,6 +343,27 @@ def api_validate_case(sep):
             jumlah_beda_dual_coding=dual_coding['jumlah_beda_total']
         )
         rekomendasi = knavp['keputusan_sistem']
+
+        # Existing KKR must show the same saved findings as PDF/Excel exports.
+        from modules.db_manager import get_recap_desk_review
+        from modules.report_data import normalize_case
+        saved_rows = get_recap_desk_review(sep=sep)
+        saved_review = request.method == 'GET' and len(saved_rows) == 1
+        if saved_review:
+            saved = normalize_case(saved_rows[0])
+            saved_form = json.loads(saved_rows[0].get('tindakan_reviewer') or '{}')
+            saved_case = dict(case, **{k: saved_form[k] for k in ('ptd', 'rule_assessments') if k in saved_form})
+            current_assessments = assess_case(saved_case)
+            triggered_rules = saved['triggered_rules']
+            summary = get_validation_summary(triggered_rules)
+            source_scoring = saved_form.get('scoring_defined', True)
+            knavp = dict(knavp, total_skor=saved['knavp_skor'] if source_scoring else None,
+                         effective_skor=None, scoring_defined=source_scoring,
+                         catalog_version=saved_form.get('catalog_version', 'review-tersimpan-sebelum-penyelarasan'),
+                         tingkat_risiko=saved['tingkat_risiko'],
+                         keputusan_sistem=saved['keputusan_sistem'] or saved['rekomendasi_laporan'])
+            dual_coding['jumlah_beda_total'] = saved['jumlah_beda_dual_coding']
+            rekomendasi = saved['rekomendasi_laporan']
 
         # Parse diag and proc lists for display
         diag_codes = [c.strip() for c in str(case.get('diaglist', '')).split(';') if c.strip()]
@@ -346,7 +384,9 @@ def api_validate_case(sep):
             'summary_by_category': summary,
             'total_triggered': len(triggered_rules),
             'rekomendasi': rekomendasi,
-            'has_high_severity': any(r['severity'] == 'High' for r in triggered_rules),
+            'has_high_severity': any(r.get('severity') == 'High' for r in triggered_rules),
+            'rule_assessments': current_assessments,
+            'saved_review': saved_review,
             # New fields for KKR-DR01 v2
             'dual_coding': dual_coding,
             'knavp': knavp,
@@ -448,8 +488,7 @@ def api_load_kkr_dr01(sep):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/kkr-os01/save', methods=['POST'])
-def api_save_kkr_os01():
+def api_save_kkr_os01_legacy():
     """Save KKR-OS01 form data"""
     try:
         data = request.get_json()
@@ -464,8 +503,7 @@ def api_save_kkr_os01():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/kkr-os01/load/<sep>')
-def api_load_kkr_os01(sep):
+def api_load_kkr_os01_legacy(sep):
     """Load saved KKR-OS01 data"""
     try:
         sep_safe = sep.replace('/', '_').replace('\\', '_')
@@ -509,12 +547,15 @@ def api_export_dr01_excel(sep):
         import io
         
         # Load saved KKR or build from validation
-        sep_safe = sep.replace('/', '_').replace('\\', '_')
-        filepath = os.path.join(KKR_STORAGE_DIR, f'KKR-DR01_{sep_safe}.json')
+        # Load saved KKR from SQLite
+        from modules.db_manager import load_kkr_dr01
+        db_data = load_kkr_dr01(sep)
         
-        if os.path.exists(filepath):
-            with open(filepath, 'r', encoding='utf-8') as f:
-                kkr_data = json.load(f)
+        if db_data:
+            kkr_data = db_data.get('form_data', {})
+            kkr_data['sep'] = sep
+            if 'triggered_rules_json' in db_data and db_data['triggered_rules_json']:
+                kkr_data['triggered_rules'] = json.loads(db_data['triggered_rules_json'])
         else:
             # Build from case data
             case = get_case_by_sep(sep)
@@ -559,6 +600,62 @@ def api_export_dr01_excel(sep):
 
 @app.route('/api/export/dr01/pdf/<sep>')
 def api_export_dr01_pdf(sep):
+    return api_output_kkr('DR01', sep)
+
+
+def _api_export_dr01_pdf_previous(sep):
+    """Download saved KKR PDF using official layout."""
+    import io
+    from modules.export_generator import export_kkr_dr01_pdf
+    from modules.db_manager import load_kkr_dr01
+    try:
+        db_data = load_kkr_dr01(sep)
+        if db_data:
+            kkr_data = db_data.get('form_data', {})
+            kkr_data['sep'] = sep
+            if 'triggered_rules_json' in db_data and db_data['triggered_rules_json']:
+                kkr_data['triggered_rules'] = json.loads(db_data['triggered_rules_json'])
+            case = get_case_by_sep(sep)
+            if case:
+                kkr_data['kode_rs'] = case.get('kode_rs')
+                kkr_data['nama_rs'] = case.get('nama_rs')
+                kkr_data['inacbg'] = case.get('inacbg')
+                kkr_data['case'] = case
+        else:
+            case = get_case_by_sep(sep)
+            if not case:
+                return jsonify({'success': False, 'error': 'Case not found'}), 404
+            triggered_rules = validate_case(case)
+            kkr_data = {
+                'sep': sep,
+                'kode_rs': case.get('kode_rs'),
+                'nama_rs': case.get('nama_rs'),
+                'inacbg': case.get('inacbg'),
+                'case': case,
+                'triggered_rules': triggered_rules,
+                'total_triggered': len(triggered_rules)
+            }
+        
+        if 'case' not in kkr_data:
+            case = get_case_by_sep(sep)
+            kkr_data['case'] = case or {}
+            
+        validate_data = {
+            'triggered_rules': kkr_data.get('triggered_rules', [])
+        }
+        
+        pdf_bytes = export_kkr_dr01_pdf(kkr_data, validate_data)
+        filename = 'KKR-DR01_' + ''.join(c for c in sep if c.isalnum()) + '.pdf'
+        response = send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf', as_attachment=request.args.get('inline') != '1', download_name=filename)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    except Exception as e:
+        import traceback
+        app.logger.exception('Gagal mengekspor PDF KKR tersimpan')
+        return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
+def _api_export_dr01_pdf_legacy(sep):
     """Export KKR-DR01 as PDF with QR barcode"""
     try:
         from modules.export_generator import export_kkr_dr01_pdf
@@ -714,6 +811,21 @@ def export_laporan_akhir():
         print(f"Error generating laporan akhir: {e}")
         return jsonify({'success': False, 'message': str(e)})
 
+@app.route('/api/export/generate-word-massal', methods=['POST'])
+def generate_word_massal():
+    try:
+        import subprocess
+        import os
+        # Generate the snapshot first
+        subprocess.run(['python', 'scripts/build_consistent_reports.py', '--output', 'outputs/laporan_final_20260831_v3'], check=True)
+        # Generate the word documents
+        subprocess.run(['python', 'scripts/build_consistent_reports.py', '--output', 'outputs/laporan_final_20260831_v3', '--word'], check=True)
+        return jsonify({'success': True, 'message': 'Berhasil generate dokumen Word massal di folder outputs/laporan_final_20260831_v3'})
+    except Exception as e:
+        print(f"Error generating word massal: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/api/reports/generated')
 def get_generated_reports_api():
     try:
@@ -722,6 +834,49 @@ def get_generated_reports_api():
         return jsonify({'success': True, 'data': reports})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/outputs')
+def api_outputs():
+    from modules.output_catalog import catalog
+    # Individual forms are opened from the KKR page; keep the library compact.
+    items = [item for item in catalog() if not item['filename'].startswith(('KKR-DR01_', 'KKR-OS01_'))]
+    return jsonify({'success': True, 'data': items})
+
+
+@app.route('/api/outputs/file/<path:relative>')
+def api_output_file(relative):
+    from modules.output_catalog import resolve_output
+    try:
+        path = resolve_output(relative)
+        return send_file(path, as_attachment=True, download_name=path.name)
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Output tidak ditemukan'}), 404
+
+
+@app.route('/api/outputs/kkr/<kind>/<path:sep>')
+def api_output_kkr(kind, sep):
+    from modules.output_catalog import find_kkr
+    if kind not in ('DR01', 'OS01'):
+        return jsonify({'success': False, 'error': 'Jenis KKR tidak valid'}), 400
+    if kind == 'DR01':
+        import io
+        from modules.report_pdf import export_saved_pdf
+        try:
+            data = export_saved_pdf(sep, request.args.get('kode_rs'))
+        except ValueError as exc:
+            return jsonify({'success': False, 'error': str(exc)}), 404
+        response = send_file(io.BytesIO(data), mimetype='application/pdf',
+                             as_attachment=request.args.get('inline') != '1',
+                             download_name=f'KKR-DR01_{sep}.pdf')
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    path = find_kkr(sep, kind)
+    if path is None:
+        return jsonify({'success': False, 'error': 'KKR belum tersedia di outputs'}), 404
+    response = send_file(path, mimetype='application/pdf', as_attachment=request.args.get('inline') != '1', download_name=path.name)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 @app.route('/api/export/download/<int:report_id>')
 def download_generated_report(report_id):

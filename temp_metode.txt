@@ -1,0 +1,30 @@
+E. Metode', level=2)
+    add_p("Desk Review dilaksanakan melalui tahapan:", align=WD_ALIGN_PARAGRAPH.LEFT, size_pt=12, space_after_pt=4)
+    metode_items = [
+        ("1.", "ekstraksi data klaim;"),
+        ("2.", "penerapan aturan validasi KNAVP;"),
+        ("3.", "analisis hasil validasi oleh reviewer;"),
+        ("4.", "dokumentasi hasil pada KKR-DR01; dan"),
+        ("5.", "penyusunan rekomendasi tindak lanjut.")
+    ]
+    for num_str, text_str in metode_items:
+        add_list_item(num_str, text_str)
+    document.add_page_break()
+
+    # ── BAB II HASIL DESK REVIEW ──────────────────────────────────────────────
+    document.add_heading('BAB II HASIL DESK REVIEW', level=1)
+
+    document.add_heading('A. Gambaran Data', level=2)
+    
+    ss = summary_stats or {}
+    onsite   = ss.get('onsite', sum(1 for c in cases if 'On-Site' in str(c.get('keputusan_sistem', ''))))
+    sampling = ss.get('sampling', sum(1 for c in cases if 'Sampling' in str(c.get('keputusan_sistem', '')) and 'On-Site' not in str(c.get('keputusan_sistem', ''))))
+    monitor  = ss.get('monitoring', len(cases) - onsite - sampling)
+    avg_skor = ss.get('avg_skor_knavp', round(sum(float(c.get('knavp_skor', 0) or 0) for c in cases) / max(len(cases), 1), 1))
+    beda_dc  = ss.get('total_beda_dc', sum(int(c.get('jumlah_beda_dual_coding', 0) or 0) for c in cases))
+    
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT COUNT(*) as total, "
+        "SUM(CASE WHEN inacbg LIKE '%-0

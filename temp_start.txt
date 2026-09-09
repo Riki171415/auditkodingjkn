@@ -1,0 +1,50 @@
+    from docx import Document
+    from docx.shared import Pt, Inches, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    import os
+
+    document = Document()
+
+    def add_p(text, align=WD_ALIGN_PARAGRAPH.LEFT, bold=False, size_pt=12, space_after_pt=0):
+        p = document.add_paragraph()
+        p.alignment = align
+        if space_after_pt:
+            p.paragraph_format.space_after = Pt(space_after_pt)
+        run = p.add_run(text)
+        run.bold = bold
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(size_pt)
+        return p
+
+    def add_list_item(bullet, text, size_pt=12, space_after_pt=0):
+        p = document.add_paragraph()
+        p.style = 'List Bullet'
+        p.paragraph_format.space_after = Pt(space_after_pt)
+        run = p.add_run(text)
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(size_pt)
+        return p
+
+    def format_table(table, font_size_pt=12):
+        table.style = 'Table Grid'
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.name = 'Times New Roman'
+                        run.font.size = Pt(font_size_pt)
+                        
+    # ── Title ─────────────────────────────────────────────────────────────────
+    heading = document.add_heading('LAPORAN HASIL DESK REVIEW AUDIT CODING', 0)
+    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub = document.add_paragraph('Transisi INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG)')
+    sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub.runs[0].italic = True
+    
+    document.add_paragraph("", style='Normal')
+    
+    table_meta = document.add_table(rows=6, cols=2)
+    meta_rows = [
+        ["Rumah Sakit", f":  {rs_name}"],

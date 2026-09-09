@@ -1,0 +1,48 @@
+                "Temuan ini berupa ketidaksesuaian antara kode diagnosis dengan data administratif pasien "
+                "(jenis kelamin atau kelompok umur). Diperlukan klarifikasi identitas pasien dan "
+                "kesesuaian pengkodean dengan data rekam medis yang tersedia.",
+            'age_validation':
+                f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan penggunaan kode diagnosis yang tidak sesuai dengan kelompok umur pasien. "
+                "Diperlukan verifikasi tanggal lahir pasien dan kesesuaian kode dengan kelompok usia yang tepat.",
+            'los_validation':
+                f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan lama rawat (LOS) yang melebihi ambang batas kewajaran "
+                "berdasarkan perbandingan dengan ALOS nasional dan CMI rumah sakit ini. "
+                "Diperlukan verifikasi klinis untuk memastikan bahwa perpanjangan masa rawat memiliki "
+                "justifikasi medis yang terdokumentasi dalam rekam medis.",
+        }
+        _default_narasi = (
+            f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+            "Temuan-temuan ini memerlukan klarifikasi lebih lanjut terhadap rekam medis dan pengkodean "
+            "sesuai panduan ICS V7 dan kaidah koding nasional yang berlaku."
+        )
+        add_p(_narasi_map.get(dom_kat, _default_narasi), align=3, size_pt=12, space_after_pt=6)
+        add_p(
+            "Temuan-temuan ini memiliki dampak langsung terhadap ketepatan pengelompokan INA-CBG maupun simulasi iDRG "
+            "(termasuk penentuan tingkat keparahan CCL/PCCL). Oleh karena itu, diperlukan tindak lanjut terarah "
+            "untuk mengklarifikasi kesesuaian rekam medis dengan kode yang telah diinput.",
+            align=3, size_pt=12, space_after_pt=8
+        )
+
+
+    document.add_heading('D. Kasus Prioritas', level=2)
+    table_kp = document.add_table(rows=1, cols=5)
+    kp_hdrs = ['No', 'Nomor SEP', 'Rule / Temuan', 'Prioritas', 'Rekomendasi']
+    for i, h in enumerate(kp_hdrs):
+        table_kp.rows[0].cells[i].text = h
+
+    # Prioritas 1: kasus yang ADA triggered rules, diurutkan skor tertinggi
+    cases_with_rules = sorted(
+        [c for c in cases if c.get('triggered_rules')],
+        key=lambda x: int(x.get('knavp_skor') or 0),
+        reverse=True
+    )
+    # Prioritas 2: kasus dual-coding discrepancy tanpa rule, tingkat Sedang/Tinggi
+    cases_dc_only = [
+        c for c in cases
+        if not c.get('triggered_rules')
+        and int(c.get('jumlah_beda_dual_coding', 0)) > 0

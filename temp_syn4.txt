@@ -1,0 +1,15 @@
+    document.add_heading('2. Rekapitulasi Hasil Validasi KNAVP', level=2)
+    table_l2 = document.add_table(rows=8, cols=2)
+    ss = summary_stats or {}
+    # ── Hitung ulang menggunakan helper terpusat — konsisten dengan Excel ───────
+    onsite   = ss.get('onsite',   sum(1 for c in cases if _lha_is_onsite(c.get('keputusan_sistem', ''))))
+    sampling = ss.get('sampling', sum(1 for c in cases if _lha_is_sampling(c.get('keputusan_sistem', ''))))
+    monitor  = ss.get('monitoring', len(cases) - onsite - sampling)
+    # ─────────────────────────────────────────────────────────────────────────
+    avg_skor = ss.get('avg_skor_knavp', round(sum(float(c.get('knavp_skor', 0) or 0) for c in cases) / max(len(cases), 1), 1))
+    beda_dc  = ss.get('total_beda_dc', sum(int(c.get('jumlah_beda_dual_coding', 0) or 0) for c in cases))
+
+    l2_rows = [
+
+    document.save(output_path)
+    return output_path

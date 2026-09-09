@@ -99,7 +99,11 @@ def load_cmi_data():
         cmi_path = os.path.join(BASE_DIR, 'V2_CMI_INACBG_2025_CLEAN_20260704.xlsx')
         _cmi_data = pd.read_excel(cmi_path, dtype=str)
     
-    print(f"[DataLoader] Loaded {len(_cmi_data)} rows from CMI data")
+    # Filter only RSU (Rumah Sakit Umum) to match Tabel CMI expectations
+    if 'JENIS_RS' in _cmi_data.columns:
+        _cmi_data = _cmi_data[_cmi_data['JENIS_RS'] == 'RSU'].copy()
+        
+    print(f"[DataLoader] Loaded {len(_cmi_data)} rows from CMI data (Filtered to RSU only)")
     
     # Process numeric columns
     numeric_cols = ['total_kasus_cmi', 'kasus_rs', 'casemix', 'cmi', 'alos']
@@ -116,13 +120,24 @@ def load_cmi_data():
         
     return _cmi_data, _cmi_hospitals
 
-def load_individual_data(kode_rs=None):
+def load_individual_data(kode_rs=None, sep=None):
     """Load Individual data from SQLite (with parameterized query) or CSV"""
     global _individual_data
     
+    # Optimization: return cached full dataset if available
+    if _individual_data is not None:
+        df = _individual_data
+        if kode_rs:
+            df = df[df['kode_rs'] == str(kode_rs)]
+        if sep is not None:
+            df = df[df['sep'] == str(sep)]
+        return df
+
     conn = get_db_connection()
     if conn:
-        if kode_rs:
+        if sep is not None:
+            df = pd.read_sql_query('SELECT * FROM individual_data WHERE sep = ?', conn, params=(sep,))
+        elif kode_rs:
             # SQL INJECTION PROTECTION: Parameterized query
             print(f"[DataLoader] Loading Individual data for RS {kode_rs} from SQLite...")
             query = "SELECT * FROM individual_data WHERE kode_rs = ?"
@@ -131,6 +146,7 @@ def load_individual_data(kode_rs=None):
             print("[DataLoader] Loading ALL Individual data from SQLite...")
             query = "SELECT * FROM individual_data"
             df = pd.read_sql_query(query, conn)
+            _individual_data = df # Cache it!
         conn.close()
     else:
         if _individual_data is not None:
@@ -143,6 +159,8 @@ def load_individual_data(kode_rs=None):
         
         if kode_rs:
             df = df[df['kode_rs'] == str(kode_rs)]
+        if sep is not None:
+            df = df[df['sep'] == str(sep)]
             
     # Pre-process numeric
     if 'tarif_inacbg' in df.columns:
@@ -153,7 +171,23 @@ def load_individual_data(kode_rs=None):
         df['alos'] = pd.to_numeric(df['alos'], errors='coerce')
     if 'cmi' in df.columns:
         df['cmi'] = pd.to_numeric(df['cmi'], errors='coerce')
-        
+
+    # Inject RS-level CMI from cmi_data jika kolom CMI belum ada per kasus
+    # Ini penting agar rule LOS (los_outlier) menggunakan threshold yang akurat
+    if 'cmi' not in df.columns or df['cmi'].isna().all():
+        try:
+            _cmi_df, _ = load_cmi_data()
+            if _cmi_df is not None and not _cmi_df.empty and 'kode_rs' in _cmi_df.columns:
+                _cmi_lookup = _cmi_df[['kode_rs', 'cmi']].copy()
+                _cmi_lookup['kode_rs'] = _cmi_lookup['kode_rs'].astype(str)
+                _cmi_lookup['cmi'] = pd.to_numeric(_cmi_lookup['cmi'], errors='coerce')
+                df['kode_rs'] = df['kode_rs'].astype(str)
+                df = df.merge(_cmi_lookup.rename(columns={'cmi': '_cmi_rs'}), on='kode_rs', how='left')
+                df['cmi'] = df['_cmi_rs']
+                df = df.drop(columns=['_cmi_rs'])
+        except Exception:
+            pass
+
     return df
 
 
@@ -180,14 +214,20 @@ def get_hospital_list(sample_only=False):
     merged = merged.drop(columns=['cmi_num'])
     
     if sample_only:
-        # Explicitly filter out RS EMC PULOMAS (3172495) because it only has 16 cases in the raw data,
-        # ensuring we get a clean 40 * 50 = 2000 cases.
-        merged = merged[merged['kode_rs'].astype(str) != '3172495']
-        
-        # Filter 20 P and 20 S
-        p_hospitals = merged[merged['pemilik'].str.upper() == 'P'].head(20)
-        s_hospitals = merged[merged['pemilik'].str.upper() == 'S'].head(20)
-        merged = pd.concat([p_hospitals, s_hospitals])
+        # Use hardcoded list of 44 target hospitals (22 Pemerintah, 22 Swasta) provided by the user
+        target_rs_codes = [
+            # Pemerintah
+            '3273015', '1371010', '3374010', '3578016', '3578811', '1275655', '3404015', 
+            '7371325', '3171012', '1371464', '5171016', '3173521', '3173025', '3372015', 
+            '3573011', '3603010', '1671013', '5271010', '3172013', '7171013', '3310015', 
+            '1471011',
+            # Swasta
+            '3172495', '3578443', '3671203', '5103035', '3273486', '3275392', '3603115', 
+            '3671065', '3577099', '3201230', '1471226', '3471052', '3404189', '3276017', 
+            '1471067', '3671054', '3471041', '3578086', '3275115', '3374043', '3671080', 
+            '3374076'
+        ]
+        merged = merged[merged['kode_rs'].astype(str).isin(target_rs_codes)]
     
     return merged.to_dict('records')
 
@@ -229,7 +269,7 @@ def get_hospital_detail(kode_rs):
 
 def get_case_by_sep(sep):
     """Get single case by SEP number"""
-    df_ind = load_individual_data()
+    df_ind = load_individual_data(sep=sep)
     case = df_ind[df_ind['sep'] == sep]
     if len(case) == 0:
         return None
@@ -260,8 +300,8 @@ def get_case_by_sep(sep):
 
 def get_sampled_cases_by_rs(kode_rs):
     """
-    Get Cochran-sampled cases for a hospital.
-    Sample is deterministic (seeded by kode_rs hash) for reproducibility.
+    Get Cochran-sampled cases for a hospital, separated by RI and RJ
+    based on the explicit sample targets.
     """
     df_ind = load_individual_data()
     kode_rs = str(kode_rs)
@@ -270,18 +310,58 @@ def get_sampled_cases_by_rs(kode_rs):
     
     if N == 0:
         return pd.DataFrame()
+        
+    # Explicit target sample sizes from user data
+    target_samples = {
+        '3573011': {'ri': 60, 'rj': 60}, '3173025': {'ri': 60, 'rj': 60}, '1371464': {'ri': 60, 'rj': 60},
+        '3273015': {'ri': 60, 'rj': 60}, '3374010': {'ri': 60, 'rj': 60}, '1371010': {'ri': 60, 'rj': 60},
+        '3372015': {'ri': 60, 'rj': 60}, '1671013': {'ri': 60, 'rj': 60}, '7371325': {'ri': 60, 'rj': 60},
+        '1275655': {'ri': 60, 'rj': 60}, '7171013': {'ri': 60, 'rj': 60}, '5271010': {'ri': 60, 'rj': 60},
+        '3603010': {'ri': 60, 'rj': 60}, '3173521': {'ri': 60, 'rj': 60}, '1471011': {'ri': 60, 'rj': 60},
+        '3578016': {'ri': 60, 'rj': 60}, '3404015': {'ri': 60, 'rj': 60}, '3310015': {'ri': 60, 'rj': 60},
+        '3171012': {'ri': 60, 'rj': 60}, '3172013': {'ri': 60, 'rj': 60}, '5171016': {'ri': 60, 'rj': 60},
+        '3578811': {'ri': 57, 'rj': 59}, '3577099': {'ri': 58, 'rj': 60}, '1471226': {'ri': 60, 'rj': 60},
+        '1471067': {'ri': 60, 'rj': 60}, '3603115': {'ri': 57, 'rj': 60}, '3172495': {'ri': 59, 'rj': 60},
+        '3671065': {'ri': 60, 'rj': 60}, '3671080': {'ri': 60, 'rj': 60}, '3471052': {'ri': 60, 'rj': 60},
+        '3578086': {'ri': 60, 'rj': 60}, '3471041': {'ri': 60, 'rj': 60}, '3275392': {'ri': 60, 'rj': 60},
+        '3671203': {'ri': 60, 'rj': 60}, '3276017': {'ri': 60, 'rj': 60}, '3201230': {'ri': 60, 'rj': 60},
+        '5103035': {'ri': 59, 'rj': 60}, '3578443': {'ri': 59, 'rj': 60}, '3671054': {'ri': 60, 'rj': 60},
+        '3374076': {'ri': 60, 'rj': 60}, '3374043': {'ri': 60, 'rj': 60}, '3275115': {'ri': 60, 'rj': 60},
+        '3273486': {'ri': 60, 'rj': 60}, '3404189': {'ri': 60, 'rj': 60}
+    }
     
-    n = cochran_sample_size(N)
-    
-    # Deterministic seed based on kode_rs for reproducibility
     seed = int(hashlib.md5(kode_rs.encode()).hexdigest()[:8], 16) % (2**31)
+    target = target_samples.get(kode_rs)
     
-    if n >= N:
-        return rs_data
-    
-    # Stratified sample by severity/complexity if possible
-    # Otherwise random sample
-    sampled = rs_data.sample(n=n, random_state=seed)
+    if target:
+        # Determine RI/RJ by inacbg code suffix (RJ usually ends with '0')
+        is_rj = rs_data['inacbg'].astype(str).str.endswith('0')
+        rs_ri = rs_data[~is_rj]
+        rs_rj = rs_data[is_rj]
+        
+        # Sample RI
+        n_ri = target['ri']
+        if n_ri >= len(rs_ri):
+            sample_ri = rs_ri
+        else:
+            sample_ri = rs_ri.sample(n=n_ri, random_state=seed)
+            
+        # Sample RJ
+        n_rj = target['rj']
+        if n_rj >= len(rs_rj):
+            sample_rj = rs_rj
+        else:
+            sample_rj = rs_rj.sample(n=n_rj, random_state=seed)
+            
+        sampled = pd.concat([sample_ri, sample_rj])
+    else:
+        # Fallback to general formula if not in target list
+        n = cochran_sample_size(N)
+        if n >= N:
+            sampled = rs_data
+        else:
+            sampled = rs_data.sample(n=n, random_state=seed)
+            
     return sampled
 
 
@@ -361,13 +441,18 @@ def get_dashboard_stats(sample_only=False):
     
     if sample_only:
         cursor.execute(query, codes)
+        basic_stats = cursor.fetchone()
+        total_rs = basic_stats['total_rs']
+        total_kasus = basic_stats['total_kasus']
     else:
         cursor.execute(query)
-    basic_stats = cursor.fetchone()
-    total_rs = basic_stats['total_rs']
-    total_kasus = basic_stats['total_kasus']
-    total_tarif_inacbg = basic_stats['total_tarif_inacbg']
-    total_tarif_rs = basic_stats['total_tarif_rs']
+        basic_stats = cursor.fetchone()
+        # Use full population from CMI when not restricted to samples
+        total_rs = len(df_cmi)
+        total_kasus = int(pd.to_numeric(df_cmi['jumlah_kasus'], errors='coerce').sum())
+        
+    total_tarif_inacbg = basic_stats['total_tarif_inacbg'] or 0
+    total_tarif_rs = basic_stats['total_tarif_rs'] or 0
     
     # CMI stats
     audit_2sd = int(df_cmi[df_cmi['Audit_2SD'] == 'Audit'].shape[0])
@@ -401,21 +486,14 @@ def get_dashboard_stats(sample_only=False):
     
     conn.close()
     
-    # Calculate CMI metrics
+    # CMI metrics per class (Simple average of CMI column, not weighted, to match Excel calculations)
     cmi_metrics = {}
     if not df_cmi.empty:
-        df_cmi['casemix_num'] = pd.to_numeric(df_cmi['casemix'], errors='coerce').fillna(0)
-        df_cmi['kasus_num'] = pd.to_numeric(df_cmi['jumlah_kasus'], errors='coerce').fillna(0)
-        
-        tot_casemix = df_cmi['casemix_num'].sum()
-        tot_kasus = df_cmi['kasus_num'].sum()
-        cmi_metrics['Nasional'] = (tot_casemix / tot_kasus) if tot_kasus > 0 else 0
+        cmi_metrics['Nasional'] = float(pd.to_numeric(df_cmi['cmi'], errors='coerce').mean())
         
         for cls in ['A', 'B', 'C', 'D']:
-            df_cls = df_cmi[df_cmi['KELAS'].str.upper() == cls]
-            c_casemix = df_cls['casemix_num'].sum()
-            c_kasus = df_cls['kasus_num'].sum()
-            cmi_metrics[f'Kelas {cls}'] = (c_casemix / c_kasus) if c_kasus > 0 else 0
+            df_cls = df_cmi[df_cmi['KELAS'] == cls]
+            cmi_metrics[f'Kelas {cls}'] = float(pd.to_numeric(df_cls['cmi'], errors='coerce').mean()) if not df_cls.empty else 0
     
     return {
         'total_rs': total_rs,

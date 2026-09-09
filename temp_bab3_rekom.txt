@@ -1,0 +1,24 @@
+B. Rekomendasi', level=2)
+    add_p("Berdasarkan hasil analisis reviewer atas keseluruhan temuan Desk Review, direkomendasikan langkah-langkah tindak lanjut sebagai berikut:", align=WD_ALIGN_PARAGRAPH.LEFT, size_pt=12, space_after_pt=4)
+    rekom_items = [
+        ("●", "tidak diperlukan tindak lanjut bagi kasus yang lolos validasi tanpa catatan;"),
+        ("●", "klarifikasi kepada PMIK terkait ketepatan penerapan aturan kombinasi kode dan pedoman ICS;"),
+        ("●", "klarifikasi kepada DPJP terkait kelengkapan bukti medis penunjang diagnosis secondary/komplikasi;"),
+        ("●", "pelaksanaan On-Site Audit bagi kasus-kasus prioritas dengan tingkat risiko tinggi dan temuan berulang;"),
+        ("●", "pembinaan pengodean dan peningkatan pemahaman transisi iDRG secara berkala bagi tenaga koding rumah sakit.")
+    ]
+    for num_str, text_str in rekom_items:
+        add_list_item(num_str, text_str)
+    document.add_page_break()
+
+    document.add_page_break()
+    # ── LAMPIRAN ──────────────────────────────────────────────────────────────
+    document.add_heading('LAMPIRAN', level=1)
+
+    document.add_heading('1. Ringkasan KKR-DR01', level=2)
+    table_l1 = document.add_table(rows=1, cols=9)
+    l1_hdrs = ['No', 'Nomor SEP', 'INA-CBG', 'iDRG / CCL', 'Skor KNAVP', 'Tingkat Risiko', 'Discrepancy Diagnosa', 'Discrepancy Prosedur', 'Rekomendasi Reviewer']
+    for i, h in enumerate(l1_hdrs):
+        table_l1.rows[0].cells[i].text = h
+
+    from modules.rule_engine import check_dual_c

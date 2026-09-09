@@ -1,0 +1,32 @@
+
+    def add_p(text, align=WD_ALIGN_PARAGRAPH.LEFT, bold=False, size_pt=10, space_after_pt=0):
+        p = document.add_paragraph()
+        p.alignment = align
+        if space_after_pt:
+            p.paragraph_format.space_after = Pt(space_after_pt)
+        run = p.add_run(text)
+        run.bold = bold
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(size_pt)
+        return p
+
+    def add_list_item(bullet, text, size_pt=10, space_after_pt=0):
+        p = document.add_paragraph()
+        p.style = 'List Bullet'
+        p.paragraph_format.space_after = Pt(space_after_pt)
+        run = p.add_run(text)
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(size_pt)
+        return p
+
+    def format_table(table, font_size_pt=10):
+        table.style = 'Table Grid'
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.name = 'Times New Roman'
+                        run.font.size = Pt(font_size_pt)
+                        
+    # ── Title ─────────────────────────────────────────────────────────────────
+    heading = document.add_heading('LAPORAN HASIL DESK REVIEW AUDIT CODING', 0)

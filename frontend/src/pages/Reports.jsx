@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FileText, Download, CheckCircle, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import axios from 'axios';
+import OutputLibrary from './OutputLibrary';
 
 export default function Reports() {
   const [activeTab, setActiveTab] = useState('desk-review');
@@ -9,6 +10,8 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [selectedHospital, setSelectedHospital] = useState('ALL');
   const [generatedReports, setGeneratedReports] = useState([]);
+  const [visibleRows, setVisibleRows] = useState(50);
+  useEffect(() => { setVisibleRows(50); }, [selectedHospital, activeTab]);
 
   useEffect(() => {
     Promise.all([
@@ -81,10 +84,28 @@ export default function Reports() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${actualFilename}.csv`);
+    link.setAttribute("download", actualFilename + ".csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const [generatingMassal, setGeneratingMassal] = useState(false);
+  const handleGenerateWordMassal = async () => {
+    if(!window.confirm("Proses ini akan men-generate laporan Word untuk seluruh Rumah Sakit dan memakan waktu sekitar 1-2 menit. Lanjutkan?")) return;
+    setGeneratingMassal(true);
+    try {
+      const res = await axios.post('/api/export/generate-word-massal');
+      if (res.data.success) {
+        alert("Berhasil! Dokumen Word massal berhasil di-generate.");
+      } else {
+        alert("Gagal: " + res.data.message);
+      }
+    } catch (err) {
+      alert("Error: " + (err.response?.data?.message || err.message));
+    } finally {
+      setGeneratingMassal(false);
+    }
   };
 
   if (loading) return <div className="fade-in"><div className="spinner" style={{margin:'100px auto'}}></div></div>;
@@ -157,7 +178,7 @@ export default function Reports() {
             {displayedDrData.length === 0 ? (
               <tr><td colSpan="6" style={{textAlign:'center', padding:24}} className="text-muted">Belum ada KKR Desk Review yang diselesaikan.</td></tr>
             ) : (
-              displayedDrData.map((row, i) => (
+              displayedDrData.slice(0, visibleRows).map((row, i) => (
                 <tr key={row.sep}>
                   <td>{i+1}</td>
                   <td style={{fontFamily:'monospace', fontSize:12, fontWeight:600}}>{row.sep}</td>
@@ -222,7 +243,7 @@ export default function Reports() {
             {displayedOsData.length === 0 ? (
               <tr><td colSpan="6" style={{textAlign:'center', padding:24}} className="text-muted">Belum ada KKR On-Site Audit yang diselesaikan.</td></tr>
             ) : (
-              displayedOsData.map((row, i) => (
+              displayedOsData.slice(0, visibleRows).map((row, i) => (
                 <tr key={row.sep}>
                   <td>{i+1}</td>
                   <td style={{fontFamily:'monospace', fontSize:12, fontWeight:600}}>{row.sep}</td>
@@ -248,13 +269,23 @@ export default function Reports() {
 
   const renderLaporanAkhir = () => (
     <div className="fade-in" style={{ padding: 24 }}>
-      <div style={{ display:'flex', alignItems:'center', gap: 16, marginBottom: 24 }}>
-        <FileSpreadsheet size={32} color="var(--kmk-cyan)" />
-        <div>
-          <h2 style={{ color: 'var(--kmk-navy)', margin: 0 }}>Laporan Akhir (Rekonsiliasi)</h2>
-          <p className="text-muted" style={{ margin: '4px 0 0 0' }}>Daftar file laporan yang telah di-generate secara massal oleh sistem.</p>
+        <div style={{ display:'flex', alignItems:'center', gap: 16, marginBottom: 24, justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <FileSpreadsheet size={32} color="var(--kmk-cyan)" />
+            <div>
+              <h2 style={{ color: 'var(--kmk-navy)', margin: 0 }}>Laporan Akhir (Rekonsiliasi)</h2>
+              <p className="text-muted" style={{ margin: '4px 0 0 0' }}>Daftar file laporan yang telah di-generate secara massal oleh sistem.</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-outline" onClick={handleGenerateWordMassal} disabled={generatingMassal}>
+              <FileText size={16} /> {generatingMassal ? "Generating..." : "Generate LHR (Word)"}
+            </button>
+            <button className="btn btn-primary" onClick={() => { window.location.href = '/api/export/laporan-akhir'; }}>
+              <Download size={16} /> Generate Master Excel
+            </button>
+          </div>
         </div>
-      </div>
       
       <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
         <table className="data-table">
@@ -286,8 +317,8 @@ export default function Reports() {
                   <td>{idx + 1}</td>
                   <td>
                     <span style={{
-                      padding: '4px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
-                      backgroundColor: report.report_type === 'REKAP_EXCEL' ? '#dcfce7' : '#e0f2fe',
+                      fontSize: 12, fontWeight: 600,
+                      
                       color: report.report_type === 'REKAP_EXCEL' ? '#166534' : '#075985'
                     }}>
                       {report.report_type}
@@ -315,6 +346,8 @@ export default function Reports() {
 
   return (
     <div className="fade-in" style={{ padding: '24px' }}>
+      <OutputLibrary />
+      {(activeTab === 'desk-review' ? displayedDrData.length : displayedOsData.length) > visibleRows && <button className="btn btn-outline" onClick={() => setVisibleRows(n => n + 50)}>Tampilkan 50 baris berikutnya (saat ini {visibleRows})</button>}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>

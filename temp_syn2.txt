@@ -1,0 +1,20 @@
+        add_list_item(num_str, text_str)
+    document.add_page_break()
+
+    # ── BAB II HASIL DESK REVIEW ──────────────────────────────────────────────
+    document.add_heading('BAB II HASIL DESK REVIEW', level=1)
+
+    document.add_heading('A. Gambaran Data', level=2)
+    table_gb = document.add_table(rows=7, cols=2)
+    gb_data = [
+        ['Uraian', 'Jumlah'],
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan pengkodean diagnosis yang secara eksplisit sudah termasuk (Includes) atau "
+                "dikecualikan (Excludes) dalam kode lain, sehingga tidak seharusnya dikode secara bersamaan. "
+                "Diperlukan penelusuran kaidah Includes/Excludes dalam ICD-10 dan ICS V7.",
+            'underlying_manifestation':
+                f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan kode manifestasi yang digunakan tanpa underlying cause yang tepat, "
+                "atau underlying cause yang tidak sesuai pasangan manifestasinya. "
+                "Kondisi ini berpotensi mempengaruhi akurasi grouping dan tingkat keparahan (CCL/PCCL).",

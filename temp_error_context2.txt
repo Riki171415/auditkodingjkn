@@ -1,0 +1,42 @@
+        f"Rekomendasi Monitoring (Lolos): {monitor}",
+        f"Rata-rata Skor KNAVP: {avg_skor}",
+        f"Total Perbedaan Dual Coding (INA-CBG vs iDRG): {beda_dc}",
+        f"Status Pengelompokan iDRG: Terverifikasi Rule Engine"
+    ]
+    for b in l2_bullets:
+        add_list_item("●", b)
+    add_p("", space_after_pt=6) # Spacer
+    document.add_heading('3. Daftar Kasus Prioritas', level=2)
+    add_p("Daftar lengkap kasus prioritas yang direkomendasikan untuk tindak lanjut On-Site Audit / Klarifikasi telah dirangkum dalam tabel Kasus Prioritas pada Bab II Bagian D.", align=WD_ALIGN_PARAGRAPH.JUSTIFY, size_pt=12, space_after_pt=8)
+
+    add_p("", space_after_pt=6) # Spacer
+    document.add_heading('4. Dashboard Hasil Validasi (Executive Summary KPI)', level=2)
+    compliance_rate = (monitor / len(cases) * 100) if cases else 100
+    outlier_rate = (onsite / len(cases) * 100) if cases else 0
+    
+    l4_bullets = [
+        f"Tingkat Kepatuhan Koding (Compliance Rate): {round(compliance_rate,1)}% ({monitor} kasus lolos tanpa catatan/risiko minor)",
+        f"Rasio Outlier (On-Site Audit Rate): {round(outlier_rate,1)}% ({onsite} kasus wajib diverifikasi fisik rekam medis)",
+        f"Indeks Skor Risiko KNAVP RS: {avg_skor} / 10 (Klasifikasi Risiko {risk_class})"
+    ]
+    for b in l4_bullets:
+        add_list_item("●", b)
+        
+    add_p("Distribusi Status & Rekomendasi Kasus:", bold=True, space_after_pt=4)
+    samp_rate = (sampling / len(cases) * 100) if cases else 0
+    dist_bullets = [
+        f"Monitoring (Lolos / Risiko Rendah): {monitor} Kasus ({round(compliance_rate,1)}%)",
+        f"Sampling / Klarifikasi (Risiko Sedang): {sampling} Kasus ({round(samp_rate,1)}%)",
+        f"On-Site Audit (Risiko Tinggi ≥ 4.0): {onsite} Kasus ({round(outlier_rate,1)}%)",
+        f"TOTAL KASUS SAMPEL: {len(cases)} Kasus (100%)"
+    ]
+    for b in dist_bullets:
+        add_list_item("●", b)
+    add_p("", space_after_pt=12)
+    
+    else:
+        add_p("Tidak ada perbedaan (discrepancy) kode klinis antara INA-CBG dan iDRG pada kasus sampel ini.", size_pt=10)
+    add_p("", space_after_pt=12)
+
+    document.save(output_path)
+    return output_path

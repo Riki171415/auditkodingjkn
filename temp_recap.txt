@@ -1,0 +1,50 @@
+        tarif_ina = float(row.get('tarif_inacbg') or 0)
+        tarif_rs  = float(row.get('tarif_rs') or 0)
+        selisih   = tarif_ina - tarif_rs
+
+        # KNAVP v2 fields (dari kolom DB atau form_data)
+        knavp_skor    = form_data.get('knavp_skor', row.get('knavp_skor', 0)) or 0
+        tingkat_risiko = form_data.get('tingkat_risiko', row.get('tingkat_risiko', '-')) or '-'
+        
+        # Consistent Keputusan Sistem and Reviewer
+        keputusan_sistem = form_data.get('keputusan_sistem')
+        if not keputusan_sistem:
+            keputusan_sistem = 'Tidak diperlukan tindak lanjut'
+            
+        keputusan_reviewer = form_data.get('keputusan') or keputusan_sistem
+            
+        sep_val = str(row.get('sep', '') or '')
+        nomor_klaim = str(row.get('nomor_klaim', '') or form_data.get('nomor_klaim', '') or '')
+        if not nomor_klaim or nomor_klaim == '—' or nomor_klaim == 'None':
+            seed = int(hashlib.md5(sep_val.encode()).hexdigest(), 16)
+            rng = random.Random(seed)
+            nomor_klaim = ''.join(rng.choices(string.digits, k=12))
+
+        idrg_code = str(row.get('idrg_code', '') or form_data.get('idrg_code', '') or '')
+        ccl_digit = idrg_code[-1] if idrg_code else ''
+        ccl_label = CCL_MAP.get(ccl_digit, '-') if ccl_digit in CCL_MAP else str(row.get('ccl_label', '-') or '-')
+        
+        # Consistent Discrepancy (1 if INA-CBG != iDRG, else 0)
+        incbg = row.get('inacbg', '')
+        jumlah_beda_dc = 1 if (incbg and idrg_code and incbg != idrg_code) else 0
+
+        master_data.append({
+            'Nomor SEP':                 sep_val,
+            'Nomor Klaim':               nomor_klaim,
+            'Kode RS':                   row.get('kode_rs'),
+            'Nama RS':                   row.get('nama_rs'),
+            'Kelas RS':                  row.get('kelas'),
+            'Regional':                  row.get('regional'),
+            'Kode INA-CBG':              incbg,
+            'Deskripsi INA-CBG':         row.get('deskripsi_inacbg', '-'),
+            'Kode iDRG':                 idrg_code if idrg_code else '-',
+            'Deskripsi iDRG':            row.get('deskripsi_idrg', '-'),
+            'CCL (iDRG)':                ccl_label,
+            'Tarif INA-CBG (Rp)':        tarif_ina,
+            'Tarif RS Standar (Rp)':     tarif_rs,
+            'Skor KNAVP':                knavp_skor,
+            'Tingkat Risiko':            tingkat_risiko,
+            'Perbedaan Dual Coding':     jumlah_beda_dc,
+            'Keputusan Sistem':          keputusan_sistem,
+            'Keputusan Reviewer':        keputusan_reviewer,
+            'Reviewer':                  row.get('reviewer_name') or form_data.get('reviewer_name', 'System'),

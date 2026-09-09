@@ -22,20 +22,6 @@ export default function DeskReview() {
       .catch(console.error);
   }, [kode_rs]);
 
-  useEffect(() => {
-    // Load Cases
-    setLoading(true);
-    axios.get(`/api/cases/${kode_rs}?page=${page}&per_page=50&search=${search}`)
-      .then(res => {
-        setData(res.data.data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, [kode_rs, page, search]);
-
   const handleValidateBatch = () => {
     setValidating(true);
     axios.get(`/api/validate-batch/${kode_rs}`)
@@ -49,13 +35,37 @@ export default function DeskReview() {
       });
   };
 
+  useEffect(() => {
+    // Load Cases
+    setLoading(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      axios.get('/api/cases/' + kode_rs, { params: {page, per_page: 50, search}, signal: controller.signal })
+        .then(res => {
+            setData(res.data.data);
+            // Auto-trigger batch validation so it matches the report without clicking
+            handleValidateBatch();
+        })
+        .catch(err => { if (!axios.isCancel(err)) console.error(err); })
+        .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }, 300);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [kode_rs, page, search]);
+
   const getStatusBadge = (sep) => {
     if (!batchResults) return <span className="badge badge-info" style={{background: '#eee', color: '#666'}}>Belum Divalidasi</span>;
     const res = batchResults.results.find(r => r.sep === sep);
     if (!res) return <span className="badge badge-info" style={{background: '#eee', color: '#666'}}>Belum Divalidasi</span>;
     
-    if (res.triggered_count === 0) return <span className="badge badge-success">Sesuai Aturan</span>;
-    return <span className="badge badge-danger">{res.triggered_count} Temuan</span>;
+    if (res.rekomendasi.includes('Tidak Sesuai')) {
+        return <span className="badge badge-danger">{res.rekomendasi}</span>;
+    } else if (res.rekomendasi.includes('Sesuai')) {
+        return <span className="badge badge-success">{res.rekomendasi}</span>;
+    } else if (res.rekomendasi.includes('Sampling')) {
+        return <span className="badge badge-warning">{res.rekomendasi}</span>;
+    }
+    
+    return <span className="badge badge-info">{res.rekomendasi}</span>;
   };
 
   return (
@@ -135,55 +145,68 @@ export default function DeskReview() {
           />
         </div>
         <table className="bi-table">
-          <thead>
-            <tr>
-              <th>No</th>
-              <th>Nomor SEP</th>
-              <th>INA-CBG</th>
-              <th>iDRG (Kemenkes)</th>
-              <th>Diagnosa</th>
-              <th>Tarif RS</th>
-              <th>Tarif INA-CBG</th>
-              <th>Validasi Sistem</th>
-              <th>Aksi KKR</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '40px 0' }}>Memuat data...</td></tr>
-            ) : data.cases.length === 0 ? (
-              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '40px 0' }}>Data tidak ditemukan</td></tr>
-            ) : (
-              data.cases.map((c, i) => (
-                <tr key={c.sep}>
-                  <td style={{ color: 'var(--text-muted)' }}>{(page-1)*50 + i + 1}</td>
-                  <td style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--kmk-cyan-dark)' }}>{c.sep}</td>
-                  <td>
-                    <div style={{ fontWeight: 500 }}>{c.inacbg}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.deskripsi_inacbg}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 500, color: 'var(--kmk-navy)' }}>{c.idrg_code || '-'}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.deskripsi_idrg || '-'}
-                    </div>
-                  </td>
-                  <td><span style={{ background: '#eee', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontFamily: 'monospace' }}>{c.diaglist?.split(';')[0]}</span></td>
-                  <td style={{ color: c.tarif_rs > c.tarif_inacbg ? 'var(--kmk-red)' : 'var(--kmk-green)' }}>Rp {c.tarif_rs?.toLocaleString('id-ID')}</td>
-                  <td>Rp {c.tarif_inacbg?.toLocaleString('id-ID')}</td>
-                  <td>{getStatusBadge(c.sep)}</td>
-                  <td>
-                    <Link to={`/kkr-dr01/${encodeURIComponent(c.sep)}`} className="btn btn-primary" style={{ padding: '4px 8px', fontSize: 11 }}>
-                      <ClipboardList size={12} /> Buka KKR
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Nomor SEP</th>
+                <th>Diagnosa & Prosedur</th>
+                <th>INA-CBG</th>
+                <th>iDRG</th>
+                <th>Skor KNAVP</th>
+                <th>Tingkat Risiko</th>
+                <th>Rekomendasi</th>
+                <th>Aksi KKR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan="9" style={{ textAlign: 'center', padding: '40px 0' }}>Memuat data...</td></tr>
+              ) : data.cases.length === 0 ? (
+                <tr><td colSpan="9" style={{ textAlign: 'center', padding: '40px 0' }}>Data tidak ditemukan</td></tr>
+              ) : (
+                data.cases.map((c, i) => {
+                  const res = batchResults?.results.find(r => r.sep === c.sep);
+                  const skor = res ? res.knavp_skor : '-';
+                  const risiko = res ? res.tingkat_risiko : '-';
+                  
+                  return (
+                  <tr key={c.sep}>
+                    <td style={{ color: 'var(--text-muted)' }}>{(page-1)*50 + i + 1}</td>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--kmk-cyan-dark)' }}>{c.sep}</td>
+                    <td>
+                      <div style={{ fontSize: 11, marginBottom: 4 }}><strong style={{color:'var(--text-muted)'}}>Diag:</strong> {c.diaglist?.substring(0, 50)}{c.diaglist?.length > 50 ? '...' : ''}</div>
+                      <div style={{ fontSize: 11 }}><strong style={{color:'var(--text-muted)'}}>Proc:</strong> {c.proclist?.substring(0, 50)}{c.proclist?.length > 50 ? '...' : ''}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 500 }}>{c.inacbg}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.deskripsi_inacbg}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 500, color: 'var(--kmk-navy)' }}>{c.idrg_code || '-'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.deskripsi_idrg || '-'}
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: 600, textAlign: 'center' }}>{skor}</td>
+                    <td>
+                      {risiko === 'Tinggi' ? <span className="badge badge-danger">Tinggi</span> :
+                       risiko === 'Sedang' ? <span className="badge badge-warning">Sedang</span> :
+                       risiko === 'Rendah' ? <span className="badge badge-success">Rendah</span> :
+                       <span className="badge badge-info">{risiko}</span>}
+                    </td>
+                    <td>{getStatusBadge(c.sep)}</td>
+                    <td>
+                      <Link to={`/kkr-dr01/${encodeURIComponent(c.sep)}`} className="btn btn-primary" style={{ padding: '4px 8px', fontSize: 11 }}>
+                        <ClipboardList size={12} /> Buka KKR
+                      </Link>
+                    </td>
+                  </tr>
+                )})
+              )}
+            </tbody>
+          </table>
         
         {/* Pagination */}
         <div style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)' }}>

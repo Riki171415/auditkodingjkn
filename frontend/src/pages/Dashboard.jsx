@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Activity, Building, FileSpreadsheet, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ReferenceLine, ReferenceArea } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, ReferenceLine, ReferenceArea, Cell } from 'recharts';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -17,8 +17,8 @@ export default function Dashboard() {
       axios.get(`/api/dashboard/stats?sample_only=${sampleOnly}`),
       axios.get(`/api/dashboard/scatter?sample_only=${sampleOnly}`)
     ]).then(([resStats, resScatter]) => {
-      setStats(resStats.data.data);
-      if (resScatter.data.data.points) {
+      setStats(resStats?.data?.data);
+      if (resScatter?.data?.data?.points) {
         setScatter(resScatter.data.data.points);
         setScatterMeta({
           boundaries: resScatter.data.data.boundaries || {},
@@ -26,7 +26,7 @@ export default function Dashboard() {
         });
       } else {
         // Fallback for old API payload format
-        setScatter(resScatter.data.data || []);
+        setScatter(resScatter?.data?.data || []);
       }
       setLoading(false);
     }).catch(err => {
@@ -143,7 +143,9 @@ export default function Dashboard() {
             <h3 style={{ margin: 0, color: 'var(--kmk-navy)' }}>Scatter Plot: CMI vs ALOS per Rumah Sakit</h3>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, marginTop: 4 }}>
               Setiap titik merepresentasikan 1 Rumah Sakit. Ukuran titik bergantung pada volume kasus. 
-              <span style={{ color: 'var(--kmk-red)', fontWeight: 600, marginLeft: 8 }}>Merah = Outlier (Direkomendasikan Audit)</span>
+              <span style={{ color: '#EB5757', fontWeight: 600, marginLeft: 8 }}>Merah = Outlier 2SD</span>
+              <span style={{ color: '#F39C12', fontWeight: 600, marginLeft: 8 }}>Oranye = Outlier IQR</span>
+              <span style={{ color: '#3498DB', fontWeight: 600, marginLeft: 8 }}>Biru = Normal</span>
             </p>
           </div>
         </div>
@@ -174,11 +176,17 @@ export default function Dashboard() {
                   <ReferenceArea x1={scatterMeta.boundaries.bawah_2sd} x2={scatterMeta.boundaries.atas_2sd} fill="#27AE60" fillOpacity={0.05} />
                   <ReferenceLine x={scatterMeta.boundaries.bawah_2sd} stroke="#EB5757" strokeDasharray="3 3" label={{ position: 'insideBottomLeft', value: 'Batas Bawah 2SD', fill: '#EB5757', fontSize: 11 }} />
                   <ReferenceLine x={scatterMeta.boundaries.atas_2sd} stroke="#EB5757" strokeDasharray="3 3" label={{ position: 'insideBottomRight', value: 'Batas Atas 2SD', fill: '#EB5757', fontSize: 11 }} />
+                  <ReferenceLine x={scatterMeta.boundaries.bawah_iqr} stroke="#F39C12" strokeDasharray="3 3" label={{ position: 'insideTopLeft', value: 'Batas Bawah IQR', fill: '#F39C12', fontSize: 11 }} />
+                  <ReferenceLine x={scatterMeta.boundaries.atas_iqr} stroke="#F39C12" strokeDasharray="3 3" label={{ position: 'insideTopRight', value: 'Batas Atas IQR', fill: '#F39C12', fontSize: 11 }} />
                   <ReferenceLine x={scatterMeta.boundaries.mean_cmi} stroke="#3498DB" strokeOpacity={0.5} label={{ position: 'insideTop', value: 'Rata-rata CMI', fill: '#3498DB', fontSize: 11 }} />
                 </>
               )}
               
-              <Scatter name="Rumah Sakit" data={scatter} opacity={0.65} isAnimationActive={false} />
+              <Scatter name="Rumah Sakit" data={scatter} opacity={0.65} isAnimationActive={false}>
+                {scatter.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
         </div>
@@ -232,8 +240,7 @@ export default function Dashboard() {
                     <td style={{textAlign: 'right'}}>{rs.y.toFixed(2)}</td>
                     <td>
                       <span style={{
-                        padding: '4px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
-                        backgroundColor: rs.status.includes('Outlier') ? '#fee2e2' : '#e0f2fe',
+                        fontSize: '8pt', fontWeight: 600,
                         color: rs.status.includes('Outlier') ? '#991b1b' : '#075985'
                       }}>
                         {rs.status}

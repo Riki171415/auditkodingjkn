@@ -1,0 +1,30 @@
+            for cell in ws[1]:
+                _apply(cell, **hdr)
+
+            for row in ws.iter_rows(min_row=2):
+                for cell in row:
+                    cell.border = border
+                    cell.font   = Font(size=8)
+                    # Colour-code risiko rows
+                    if sheet_name == 'Master Data (Rincian)':
+                        tk_val = str(ws.cell(row=cell.row, column=15).value or '')
+                        if tk_val == 'Tinggi':
+                            cell.fill = PatternFill(start_color=LIGHT_RED, end_color=LIGHT_RED, fill_type='solid')
+                        elif tk_val == 'Sedang':
+                            cell.fill = PatternFill(start_color=LIGHT_AMB, end_color=LIGHT_AMB, fill_type='solid')
+                    # Currency format
+                    if isinstance(cell.value, (int, float)) and abs(cell.value) > 1000:
+                        cell.number_format = '#,##0'
+
+            ws.freeze_panes = 'A2'
+            _auto_width(ws)
+
+    print(f"SELESAI! Laporan tersimpan: {filepath}")
+
+    rel_path = f"exports/rekap/{filename}"
+    save_generated_report('REKAP_EXCEL', filename, rel_path)
+
+    return filepath
+
+
+if __name__ == '__main__':

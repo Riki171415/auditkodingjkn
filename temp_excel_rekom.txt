@@ -1,0 +1,50 @@
+                    if not r.get('sesuai'):
+                        proc_diff_texts.append(format_dc_text(r))
+            except:
+                pass
+                
+            diag_diff_str = "\n".join(diag_diff_texts) if diag_diff_texts else "-"
+            proc_diff_str = "\n".join(proc_diff_texts) if proc_diff_texts else "-"
+
+            rows_sep.append({
+                'No': idx,                                                          # col 1
+                'Nomor SEP': sep_val,                                               # col 2
+                'Nomor Klaim': nomor_klaim,                                         # col 3
+                'Kode INA-CBG': str(c.get('inacbg', '') or '-'),                   # col 4
+                'Deskripsi INA-CBG': str(c.get('deskripsi_inacbg', '') or '-'),    # col 5
+                'Kode iDRG': idrg_code if idrg_code else '-',                      # col 6
+                'Deskripsi iDRG': str(c.get('deskripsi_idrg', '') or '-'),         # col 7
+                'CCL / Severity': ccl_label,                                        # col 8
+                'Aturan Audit (Rules) Terdeteksi': rule_str,                        # col 9
+                'Skor KNAVP': float(knavp_skor),                                   # col 10
+                'Tingkat Risiko': str(tingkat_risiko),                              # col 11
+                'Tarif INA-CBG (Rp)': tarif_ina,                                   # col 12
+                'Tarif RS (Rp)': tarif_rs,                                          # col 13
+                'Rekomendasi Reviewer (Desk Review)': str(keputusan),              # col 14
+                'Tanggal Review': '15 Juni 2026',                                   # col 15
+                'Temuan Discrepancy Diagnosa': diag_diff_str,
+                'Temuan Discrepancy Prosedur': proc_diff_str
+            })
+        
+        df_sep = pd.DataFrame(rows_sep)
+
+        # ── Build Summary RS ──
+        total    = len(cases)
+        onsite   = sum(1 for r in rows_sep if r['Rekomendasi Reviewer (Desk Review)'] == 'Direkomendasikan On-Site Audit')
+        monitor  = sum(1 for r in rows_sep if r['Rekomendasi Reviewer (Desk Review)'] == 'Perlu Monitoring')
+        lolos    = sum(1 for r in rows_sep if r['Rekomendasi Reviewer (Desk Review)'] == 'Tidak diperlukan tindak lanjut')
+        tdk_cukup = sum(1 for r in rows_sep if r['Rekomendasi Reviewer (Desk Review)'] == 'Data tidak cukup untuk dinilai')
+        avg_skor = round(sum(r['Skor KNAVP'] for r in rows_sep) / max(total, 1), 1)
+
+        df_summary = pd.DataFrame([{
+            'Kode RS': kode_rs,
+            'Nama Rumah Sakit': rs_name,
+            'Total Kasus Di-Review': total,
+            'Lanjut On-Site Audit': onsite,
+            'Perlu Monitoring': monitor,
+            'Tidak Perlu Tindak Lanjut': lolos,
+            'Data Tidak Cukup': tdk_cukup,
+            'Rata-rata Skor KNAVP': avg_skor,
+            'Tanggal Berlaku & Pengesahan': '15 Juni 2026',
+            'Disusun oleh': 'Tim Reviewer Koding Pusat Pembiayaan Kesehatan'
+        }])

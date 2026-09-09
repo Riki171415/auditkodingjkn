@@ -1,0 +1,40 @@
+ment.add_page_break()
+
+    # ── LAMPIRAN ──────────────────────────────────────────────────────────────
+    document.add_heading('LAMPIRAN', level=1)
+
+    document.add_heading('1. Ringkasan KKR-DR01', level=2)
+    table_l1 = document.add_table(rows=1, cols=9)
+    l1_hdrs = ['No', 'Nomor SEP', 'INA-CBG', 'iDRG / CCL', 'Skor KNAVP', 'Tingkat Risiko', 'Rekomendasi Reviewer', 'Discrepancy Diagnosa', 'Discrepancy Prosedur']
+    for i, h in enumerate(l1_hdrs):
+        table_l1.rows[0].cells[i].text = h
+
+    from modules.rule_engine import check_dual_coding_discrepancy
+    for idx, c in enumerate(cases):
+        _sep = str(c.get('sep', ''))
+        _idrg_info = _idrg_lookup.get(_sep, {}) if '_idrg_lookup' in locals() else {}
+        _case_dc = dict(c)
+        _case_dc['diaglist_idrg'] = _idrg_info.get('diaglist_idrg', '')
+        _case_dc['proclist_idrg'] = _idrg_info.get('proclist_idrg', '')
+        
+        diag_diff_texts = []
+        proc_diff_texts = []
+        try:
+            dc_res = check_dual_coding_discrepancy(_case_dc)
+            for r in dc_res.get('diag_rows', []):
+                if not r.get('sesuai'):
+                    diag_diff_texts.append(f"{r.get('ina_code','-')} vs {r.get('idrg_code','-')}: {r.get('keterangan','')}")
+            for r in dc_res.get('proc_rows', []):
+                if not r.get('sesuai'):
+                    proc_diff_texts.append(f"{r.get('ina_code','-')} vs {r.get('idrg_code','-')}: {r.get('keterangan','')}")
+        except:
+            pass
+            
+        diag_diff_str = "\n".join(diag_diff_texts) if diag_diff_texts else "-"
+        proc_diff_str = "\n".join(proc_diff_texts) if proc_diff_texts else "-"
+        
+        row_cells = table_l1.add_row().cells
+        row_cells[0].text = str(idx + 1)
+        row_cells[1].text = str(c.get('sep', ''))
+        row_cells[2].text = str(c.get('inacbg', '-'))
+        row_cells[3].text =

@@ -58,6 +58,7 @@ export default function Hospitals() {
               <th>Kode RS</th>
               <th>Nama Rumah Sakit</th>
               <th>Regional</th>
+              <th>Kepemilikan</th>
               <th>Total Kasus</th>
               <th>Status Audit</th>
               <th style={{ textAlign: 'right' }}>Aksi</th>
@@ -65,9 +66,9 @@ export default function Hospitals() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px 0' }}><div className="spinner" style={{width:24,height:24,border:'3px solid var(--kmk-cyan)',borderTopColor:'transparent',borderRadius:'50%',margin:'auto'}}></div></td></tr>
+              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px 0' }}><div className="spinner" style={{width:24,height:24,border:'3px solid var(--kmk-cyan)',borderTopColor:'transparent',borderRadius:'50%',margin:'auto'}}></div></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>Tidak ada RS yang cocok dengan pencarian.</td></tr>
+              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>Tidak ada RS yang cocok dengan pencarian.</td></tr>
             ) : (
               filtered.map((rs, idx) => (
                 <tr key={rs.kode_rs}>
@@ -79,6 +80,7 @@ export default function Hospitals() {
                     </div>
                   </td>
                   <td>{rs.regional || '-'}</td>
+                  <td>{rs.pemilik || '-'}</td>
                   <td>{rs.jumlah_kasus ? parseInt(rs.jumlah_kasus).toLocaleString('id-ID') : '-'}</td>
                   <td>
                     {rs.Audit_2SD === 'Audit' ? (

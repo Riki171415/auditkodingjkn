@@ -1,0 +1,19 @@
+(c.get('sep', ''))
+        row_cells[2].text = str(c.get('inacbg', '-'))
+        row_cells[3].text = f"{c.get('idrg_code', '-')} / {c.get('ccl_label', '-')}"
+        row_cells[4].text = str(c.get('knavp_skor', '-'))
+        row_cells[5].text = str(c.get('tingkat_risiko', '-'))
+        row_cells[6].text = str(c.get('keputusan_sistem') or c.get('rekomendasi_lanjut', '-'))
+        row_cells[7].text = diag_diff_str
+        row_cells[8].text = proc_diff_str
+    format_table(table_l1, font_size_pt=8)
+
+    add_p("", space_after_pt=6) # Spacer
+    document.add_heading('2. Rekapitulasi Hasil Validasi KNAVP', level=2)
+    table_l2 = document.add_table(rows=8, cols=2)
+    ss = summary_stats or {}
+    # ── Hitung ulang menggunakan helper terpusat — konsisten dengan Excel ───────
+    onsite   = ss.get('onsite',   sum(1 for c in cases if _lha_is_onsite(c.get('keputusan_sistem', ''))))
+    sampling = ss.get('sampling', sum(1 for c in cases if _lha_is_sampling(c.get('keputusan_sistem', ''))))
+    monitor  = ss.get('monitoring', len(cases) - onsite - sampling)
+    # ──────────────────────────────────

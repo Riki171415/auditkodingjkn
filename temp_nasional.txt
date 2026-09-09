@@ -1,0 +1,50 @@
+    add_p("Laporan ini dilampirkan bersama Dokumen Laporan Hasil Review per RS (.docx) dan bundel Kertas Kerja Reviewer Review (KKR-DR01) bertanda tangan Barcode QR.")
+
+    doc.add_heading('Lampiran 1: Tabel Agregasi Rumah Sakit Sampel', level=2)
+    add_p("Berikut adalah rincian data populasi kasus sampel per Rumah Sakit yang direview, beserta persentase Discrepancy dan jumlah kasus yang direkomendasikan untuk Audit On-Site:")
+    
+    table = doc.add_table(rows=1, cols=5)
+    table.style = 'Table Grid'
+    hdr_cells = table.rows[0].cells
+    
+    headers = ['Kode RS', 'Nama PPK', 'Total Direview', 'Discrepancy (Beda)', 'On-Site Audit']
+    for i, header in enumerate(headers):
+        hdr_cells[i].text = header
+        for run in hdr_cells[i].paragraphs[0].runs:
+            run.font.bold = True
+            run.font.size = Pt(10)
+            run.font.name = 'Times New Roman'
+        hdr_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+    for krs, v in rs_data.items():
+        row_cells = table.add_row().cells
+        row_cells[0].text = str(krs)
+        row_cells[1].text = str(v['nama_rs'])
+        row_cells[2].text = str(v['total'])
+        row_cells[3].text = str(v['discrepancy'])
+        row_cells[4].text = str(v['onsite'])
+        
+        for i in range(5):
+            if i > 1:
+                row_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            for run in row_cells[i].paragraphs[0].runs:
+                run.font.size = Pt(10)
+                run.font.name = 'Times New Roman'
+
+    doc.add_page_break()
+    doc.add_heading('Lampiran 2: Tabel Rekomendasi Kasus On-Site Audit', level=2)
+    add_p("Berikut adalah daftar kasus individual (berisiko tinggi) yang secara kuat direkomendasikan untuk dilakukan verifikasi lapangan (On-Site Audit) untuk mengecek langsung kesesuaian berkas Rekam Medis (RM):")
+    
+    table_os = doc.add_table(rows=1, cols=8)
+    table_os.style = 'Table Grid'
+    hdr_os = table_os.rows[0].cells
+    
+    headers_os = ['No', 'No SEP', 'Nama RS', 'Diagnosis INA-CBG (Kode)', 'Tingkat Risiko', 'Pelanggaran / Keterangan', 'Discrepancy Diagnosa', 'Discrepancy Prosedur']
+    for i, header in enumerate(headers_os):
+        hdr_os[i].text = header
+        for run in hdr_os[i].paragraphs[0].runs:
+            run.font.bold = True
+            run.font.size = Pt(9)
+            run.font.name = 'Times New Roman'
+        hdr_os[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        

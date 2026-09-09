@@ -1,0 +1,20 @@
+    ]
+
+    priority_cases = cases_with_rules + cases_dc_only
+    
+    for i, c in enumerate(priority_cases):
+        row_cells = table_kp.add_row().cells
+        row_cells[0].text = str(i + 1)
+        row_cells[1].text = str(c.get('sep', ''))
+                rules = c.get('triggered_rules')
+        if rules and isinstance(rules, list):
+            rule_texts = [f"• [{r.get('rule_id', '')}] {r.get('nama_aturan', '')}" for r in rules]
+            row_cells[2].text = "\n".join(rule_texts)
+        else:
+            row_cells[2].text = "Perbedaan Dual Coding Tinggi" 
+        row_cells[3].text = str(c.get('tingkat_risiko', 'Tinggi'))
+        row_cells[4].text = "On-Site Audit / Klarifikasi"
+    format_table(table_kp, font_size_pt=10)
+    add_p("", space_after_pt=12)
+
+    document.add_heading('E. Kesesuaian Input INACBG-iDRG (Discrepancy Koding)', level=2)

@@ -1,0 +1,40 @@
+            'Deskripsi iDRG':            row.get('deskripsi_idrg', '-'),
+            'CCL (iDRG)':                ccl_label,
+            'Tarif INA-CBG (Rp)':        tarif_ina,
+            'Tarif RS Standar (Rp)':     tarif_rs,
+            'Skor KNAVP':                knavp_skor,
+            'Tingkat Risiko':            tingkat_risiko,
+            'Perbedaan Dual Coding':     jumlah_beda_dc,
+            'Keputusan Sistem':          keputusan_sistem,
+            'Keputusan Reviewer':        keputusan_reviewer,
+            'Reviewer':                  row.get('reviewer_name') or form_data.get('reviewer_name', 'System'),
+            'Tanggal Review':            '15 Juni 2026',
+            'Analisis / Alasan':         form_data.get('alasan_keputusan', form_data.get('analisis_reviewer', '-')),
+        })
+
+    df = pd.DataFrame(master_data)
+
+    # ── Sheet 1: Ringkasan per RS ────────────────────────────────────────────
+    summary_rows = []
+    for rs_code, g in df.groupby('Kode RS'):
+        total = len(g)
+        onsite = (g['Keputusan Reviewer'] == 'Direkomendasikan On-Site Audit').sum()
+        monitor = (g['Keputusan Reviewer'] == 'Perlu Monitoring').sum()
+        lolos = (g['Keputusan Reviewer'] == 'Tidak diperlukan tindak lanjut').sum()
+        tdk_cukup = (g['Keputusan Reviewer'] == 'Data tidak cukup untuk dinilai').sum()
+        
+        beda_dc  = g['Perbedaan Dual Coding'].sum()
+        avg_skor = round(g['Skor KNAVP'].mean(), 1)
+        max_skor = g['Skor KNAVP'].max()
+        summary_rows.append({
+            'Kode RS':                   rs_code,
+            'Nama RS':                   g['Nama RS'].iloc[0],
+            'Total Kasus Di-Review':     total,
+            'Lanjut On-Site Audit':      onsite,
+            'Perlu Monitoring':          monitor,
+            'Tidak Perlu Tindak Lanjut': lolos,
+            'Data Tidak Cukup':          tdk_cukup,
+            'Rata-rata Skor KNAVP':      avg_skor,
+            'Skor KNAVP Tertinggi':      max_skor,
+            'Total Perbedaan Dual Coding': int(beda_dc),
+        })

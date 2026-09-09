@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { ChevronLeft, Save, Printer, SquareActivity } from 'lucide-react';
+import { ChevronLeft, Save, Printer } from 'lucide-react';
 import axios from 'axios';
 
 // ── CCL label (fallback jika tidak dikirim API) ──────────────────────────────
@@ -33,24 +33,40 @@ function RiskGauge({ tingkat }) {
   );
 }
 
+  // Styles helpers
+  const TH = ({ children, style = {}, ...props }) => (
+    <th {...props} style={{ background: '#f1f6f8', color: '#08265c', fontSize: 9, fontWeight: 700,
+                 padding: '3px 4px', border: '1px solid #0e3c6c', textAlign: 'center', ...style }}>
+      {children}
+    </th>
+  );
+  const TD = ({ children, style = {} }) => (
+    <td style={{ fontSize: 9, padding: '3px 4px', border: '1px solid #bcd', verticalAlign: 'middle', ...style }}>
+      {children}
+    </td>
+  );
+
 export default function KKRForm() {
   const { sep } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
+  const [needsEvaluation, setNeedsEvaluation] = useState(false);
   const [formData, setFormData] = useState({
     catatan_sistem: '',
     reviewer_name: '',
     nip_reviewer: '',
     tanggal_review: new Date().toISOString().split('T')[0],
+    ptd: '', rule_assessments: {},
   });
 
   useEffect(() => {
+    setLoading(true);
     axios.get(`/api/validate/${encodeURIComponent(sep)}`)
       .then(res => {
         setData(res.data.data);
-        setLoading(false);
-        axios.get(`/api/kkr-dr01/load/${encodeURIComponent(sep)}`)
+        return axios.get(`/api/kkr-dr01/load/${encodeURIComponent(sep)}`)
           .then(res_load => {
             if (res_load.data.data?.form_data) {
               const fd = res_load.data.data.form_data;
@@ -60,11 +76,13 @@ export default function KKRForm() {
                 reviewer_name: fd.reviewer_name || '',
                 nip_reviewer: fd.nip_reviewer || '',
                 tanggal_review: fd.tanggal_review || f.tanggal_review,
+                ptd: fd.ptd || '', rule_assessments: fd.rule_assessments || {},
               }));
             }
-          }).catch(() => {});
+          });
       })
-      .catch(() => setLoading(false));
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
   }, [sep]);
 
   const handleSave = () => {
@@ -74,14 +92,33 @@ export default function KKRForm() {
       kode_rs: data.case.kode_rs,
       sep,
       triggered_rules: data.triggered_rules,
-      keputusan: knavp.keputusan_sistem || '',
-      alasan_keputusan: `Skor KNAVP: ${knavp.total_skor || 0} | Tingkat Risiko: ${knavp.tingkat_risiko || '-'} | Perbedaan Dual Coding: ${data?.dual_coding?.jumlah_beda_total || 0}`,
+      keputusan_sistem: knavp.keputusan_sistem || '',
+      knavp_skor: knavp.total_skor ?? null,
+      scoring_defined: knavp.scoring_defined,
+      catalog_version: knavp.catalog_version,
+      tingkat_risiko: knavp.tingkat_risiko || '',
+      jumlah_beda_dual_coding: data?.dual_coding?.jumlah_beda_total ?? 0,
       ...formData
     };
     axios.post('/api/kkr-dr01/save', payload)
       .then(() => { alert('KKR Berhasil Disimpan!'); setSaving(false); })
       .catch(() => { alert('Gagal menyimpan'); setSaving(false); });
   };
+
+  const evaluateCurrent = async () => {
+    setEvaluating(true);
+    try {
+      const result = await axios.post(`/api/validate/${encodeURIComponent(sep)}`, {
+        ptd: formData.ptd, rule_assessments: formData.rule_assessments,
+      });
+      setData(result.data.data);
+      setNeedsEvaluation(false);
+    } catch { alert('Evaluasi belum berhasil. Data belum disimpan.'); }
+    finally { setEvaluating(false); }
+  };
+  const updateAssessment = (id, key, value) => { setNeedsEvaluation(true); setFormData(f => ({ ...f,
+    rule_assessments: { ...f.rule_assessments, [id]: { ...f.rule_assessments[id], [key]: value } },
+  })); };
 
   if (loading) return (
     <div className="fade-in" style={{ display:'flex', justifyContent:'center', padding:60 }}>
@@ -91,6 +128,7 @@ export default function KKRForm() {
   if (!data) return <div>Gagal memuat formulir.</div>;
 
   const { case: c, triggered_rules, dual_coding, knavp, ccl_label } = data;
+  const unavailable = 'Tidak tersedia pada sumber';
   const diags = c.diaglist ? c.diaglist.split(';').map(x => x.trim()).filter(Boolean) : [];
   const procs = c.proclist ? c.proclist.split(';').map(x => x.trim()).filter(Boolean) : [];
   const jumlahDiag = diags.length;
@@ -106,27 +144,13 @@ export default function KKRForm() {
   const maxRuleRows = Math.max(triggered_rules.length, 5);
 
   // Rekomendasi sistem (auto)
-  const rekSistem = knavp?.keputusan_sistem || 'Tidak perlu tindak lanjut';
-  const totalSkor = knavp?.total_skor ?? 0;
-  const tingkatRisiko = knavp?.tingkat_risiko ?? 'Rendah';
+  const rekSistem = knavp?.keputusan_sistem || 'Memerlukan penilaian reviewer';
+  const totalSkor = knavp?.total_skor ?? '-';
+  const tingkatRisiko = knavp?.tingkat_risiko ?? 'Belum ditetapkan';
 
   const isOnSite   = rekSistem.includes('On-Site');
   const isSampling = rekSistem.includes('Sampling');
   const isMonitor  = rekSistem.includes('Monitoring') && !isOnSite && !isSampling;
-
-  // Styles helpers
-  const TH = ({ children, style = {} }) => (
-    <th style={{ background: '#1e3a5f', color: 'white', fontSize: 9, fontWeight: 700,
-                 padding: '3px 4px', border: '1px solid #0e3c6c', textAlign: 'center', ...style }}>
-      {children}
-    </th>
-  );
-  const TD = ({ children, style = {} }) => (
-    <td style={{ fontSize: 9, padding: '3px 4px', border: '1px solid #bcd', verticalAlign: 'middle', ...style }}>
-      {children}
-    </td>
-  );
-  const chk = (checked) => checked ? '☑' : '☐';
 
   return (
     <div className="fade-in" style={{ padding: '20px 0' }}>
@@ -136,51 +160,80 @@ export default function KKRForm() {
           <ChevronLeft size={16} /> Kembali
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-outline" onClick={() => window.print()}>
-            <Printer size={16} /> Cetak / PDF
-          </button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          <a className="btn btn-outline" href={`/api/outputs/kkr/DR01/${encodeURIComponent(sep)}?inline=1`} target="_blank" rel="noreferrer">
+            <Printer size={16} /> Cetak PDF tersimpan
+          </a>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving || evaluating || needsEvaluation}>
             <Save size={16} /> {saving ? 'Menyimpan...' : 'Simpan KKR'}
           </button>
         </div>
       </div>
 
+      <details className="no-print" style={{ maxWidth: 1000, margin: '0 auto 20px', padding: 12, background: 'white' }}>
+        <summary>Evaluasi menurut Lampiran V dan bukti reviewer</summary>
+        <p>{data.saved_review ? 'Formulir di bawah memuat review tersimpan. Evaluasi ulang menampilkan hasil baru; gunakan Simpan KKR untuk menyimpannya.' : 'Hasil evaluasi Lampiran V. Data yang belum cukup tetap memerlukan verifikasi.'}</p>
+        <label>PTD terverifikasi <select value={formData.ptd} onChange={e => { setNeedsEvaluation(true); setFormData(f => ({ ...f, ptd: e.target.value })); }}>
+          <option value="">Belum tersedia</option><option value="1">1</option><option value="2">2</option>
+        </select></label>
+        <p>Untuk kondisi yang memerlukan telaah, catat apakah kondisi validasi terpenuhi beserta bukti dan nama reviewer.</p>
+        {(data.rule_assessments || []).map(r => {
+          const a = formData.rule_assessments[r.rule_id] || {};
+          return <details key={r.rule_id} style={{ margin: '8px 0' }}>
+            <summary>{r.rule_id} — {r.nama_aturan} — {{ triggered: 'Terindikasi', not_triggered: 'Kondisi tidak terpenuhi', needs_review: 'Perlu verifikasi', not_applicable: 'Di luar PTD' }[r.status]}</summary>
+            <p>{r.kondisi_validasi}</p><p>{r.evidence}</p>
+            {r.requires_evidence && <>
+            <label>Kondisi validasi <select value={a.condition_met === true ? 'true' : a.condition_met === false ? 'false' : ''} onChange={e => updateAssessment(r.rule_id, 'condition_met', e.target.value === '' ? null : e.target.value === 'true')}>
+              <option value="">Belum dinilai</option><option value="true">Terpenuhi</option><option value="false">Tidak terpenuhi</option>
+            </select></label>
+            <label> Bukti <input aria-label={`Bukti ${r.rule_id}`} value={a.evidence || ''} onChange={e => updateAssessment(r.rule_id, 'evidence', e.target.value)} /></label>
+            <label> Reviewer <input aria-label={`Reviewer ${r.rule_id}`} value={a.reviewer || ''} onChange={e => updateAssessment(r.rule_id, 'reviewer', e.target.value)} /></label>
+            </>}
+          </details>;
+        })}
+        <button className="btn btn-outline" onClick={evaluateCurrent} disabled={evaluating}>{evaluating ? 'Mengevaluasi...' : 'Evaluasi ulang menurut Lampiran V'}</button>
+        {needsEvaluation && <p>Evaluasi ulang diperlukan sebelum perubahan ini dapat disimpan.</p>}
+      </details>
+
       {/* ── A4 Page ── */}
-      <div className="kkr-page" style={{ maxWidth: 1000, margin: '0 auto', background: 'white', padding: 28, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontFamily: 'Arial, sans-serif' }}>
+      <div className="a4-container kkr-page kkr-reference-editor">
 
         {/* ════════════════════ HEADER ════════════════════ */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 0, border: '2px solid #0e3c6c', marginBottom: 0 }}>
-          {/* Logo + Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRight: '1px solid #0e3c6c' }}>
-            <SquareActivity size={30} color="#0e3c6c" />
-            <div>
-              <div style={{ fontSize: 8, fontWeight: 700, color: '#0e3c6c', lineHeight: 1.3 }}>KEMENTERIAN KESEHATAN<br/>REPUBLIK INDONESIA</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#0e3c6c', marginTop: 4 }}>KERTAS KERJA REVIEWER – DESK REVIEW</div>
-              <div style={{ fontSize: 9, color: '#00838f', fontWeight: 600 }}>HASIL VALIDASI OTOMATIS</div>
-              <div style={{ fontSize: 8, marginTop: 2, color: '#444' }}>AUDIT CODING DAN VERIFIKASI DUAL CODING</div>
-              <div style={{ fontSize: 7.5, color: '#666' }}>Transisi INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG)</div>
-            </div>
-          </div>
-          {/* Doc info */}
-          <div style={{ padding: '6px 10px', borderRight: '1px solid #0e3c6c', minWidth: 150 }}>
-            <table style={{ fontSize: 8, borderCollapse: 'collapse', width: '100%' }}>
-              <tbody>
-                <tr><td style={{ fontWeight: 700, paddingRight: 4 }}>KODE DOKUMEN</td><td>: KKR-DR01</td></tr>
-                <tr><td style={{ fontWeight: 700 }}>VERSI</td><td>: 1.0</td></tr>
-                <tr><td style={{ fontWeight: 700 }}>TANGGAL BERLAKU</td><td>: __/__/____</td></tr>
-                <tr><td style={{ fontWeight: 700 }}>HALAMAN</td><td>: 1 dari 1</td></tr>
-              </tbody>
-            </table>
-          </div>
-          {/* KKR-DR01 big block */}
-          <div style={{ background: '#0e3c6c', padding: '8px 14px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 110 }}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: 'white', letterSpacing: 1 }}>KKR-DR01</div>
-            <div style={{ fontSize: 7, color: '#7dd3fc', marginTop: 2, textAlign: 'center' }}>KODE DOKUMEN</div>
-          </div>
-        </div>
+        <table className="kkr-pdf-header">
+          <tbody>
+            <tr>
+              <td style={{ width: '20%', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.2)' }}>
+                <div style={{ fontSize: 9, fontWeight: 'bold', lineHeight: 1.2 }}>
+                  KEMENTERIAN<br/>KESEHATAN<br/>REPUBLIK INDONESIA
+                </div>
+              </td>
+              <td style={{ width: '45%', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.2)' }}>
+                <div style={{ fontSize: 11, fontWeight: 'bold', marginBottom: 4 }}>
+                  <div style={{ fontSize: 26, color: '#08265c' }}>KKR-DR01</div>
+                  KERTAS KERJA REVIEWER – DESK REVIEW
+                  <div style={{ fontSize: 15, color: '#007b83', marginTop: 4 }}>HASIL VALIDASI OTOMATIS</div>
+                </div>
+                <div style={{ fontSize: 9 }}>AUDIT CODING DAN VERIFIKASI DUAL CODING</div>
+                <div style={{ fontSize: 8 }}>Transisi INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG)</div>
+              </td>
+              <td style={{ width: '25%', textAlign: 'left', borderRight: '1px solid rgba(255,255,255,0.2)' }}>
+                <div className="kkr-header-meta" style={{ lineHeight: 1.5 }}>
+                  <strong>KODE DOKUMEN</strong> : KKR-DR01<br/>
+                  <strong>VERSI</strong> : 1.0<br/>
+                  <strong>TGL BERLAKU</strong> : ___ / ___ / ____<br/>
+                  <strong>HALAMAN</strong> : Formulir kerja
+                </div>
+              </td>
+              <td style={{ width: '10%', textAlign: 'center' }}>
+                <div style={{ width: 40, height: 40, margin: '0 auto', background: 'white', padding: 2 }}>
+                  <img src={`/api/export/dr01/qr/${encodeURIComponent(sep)}`} alt="QR" style={{ width: '100%', height: '100%' }} />
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         {/* Banner kuning */}
-        <div style={{ background: '#fef08a', border: '1.5px solid #eab308', borderTop: 'none', padding: '4px 10px', textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#713f12', letterSpacing: 0.5 }}>
+        <div style={{ background: '#087f85', border: '1px solid #087f85', borderTop: 'none', padding: '4px 10px', textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#ffffff', letterSpacing: 0.5, marginBottom: 12 }}>
           BERDASARKAN DATA KLAIM – TANPA TELAAH REKAM MEDIS
         </div>
 
@@ -192,15 +245,15 @@ export default function KKRForm() {
             <table className="kkr-data-table" style={{ width: '100%' }}>
               <tbody>
                 {[
-                  ['Nomor Klaim', ':  ……………………………'],
+                  ['Nomor Klaim', `: ${c.nomor_klaim || unavailable}`],
                   ['Nomor SEP', `: ${c.sep}`],
-                  ['Nomor Peserta', ':  ……………………………'],
-                  ['Nama Peserta', `: ${c.nama_pasien || '……………………………'}`],
-                  ['Tanggal Lahir / Umur', `: ${c.tanggal_lahir || '__/__/____'} / …… tahun`],
-                  ['Jenis Kelamin', `: ${c.jenis_kelamin == '1' || c.jenis_kelamin == 'L' ? '☑ Laki-laki  ☐ Perempuan' : '☐ Laki-laki  ☑ Perempuan'}`],
-                  ['Fasilitas Kesehatan (FKRTL)', `: ${c.nama_rs}`],
+                  ['Nomor Peserta', `: ${c.nomor_peserta || unavailable}`],
+                  ['Nama Peserta', `: ${c.Nama_Pasien || c.nama_pasien || unavailable}`],
+                  ['Tanggal Lahir / Umur', `: ${c.Birth_date || c.tanggal_lahir || unavailable} / ${c.umur ?? '-'} tahun`],
+                  ['Jenis Kelamin', `: ${['1','L','LAKI-LAKI'].includes(String(c.SEX || c.jenis_kelamin || '').toUpperCase()) ? '☑ Laki-laki  ☐ Perempuan' : ['2','P','PEREMPUAN'].includes(String(c.SEX || c.jenis_kelamin || '').toUpperCase()) ? '☐ Laki-laki  ☑ Perempuan' : unavailable}`],
+                  ['Fasilitas Kesehatan', `: ${c.nama_rs}`],
                   ['Kode FPKTL', `: ${c.kode_rs}`],
-                  ['Kelas Rawat', `: ${c.kelas_rawat || '-'}`],
+                  ['Kelas Rawat', `: Kelas ${c.kelas_rawat || '-'}`],
                 ].map(([label, val]) => (
                   <tr key={label}>
                     <td width="42%" style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>{label}</td>
@@ -216,7 +269,7 @@ export default function KKRForm() {
               <tbody>
                 <tr>
                   <td width="50%" style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>Tanggal Pelayanan</td>
-                  <td style={{ fontSize: 9, padding: '2px 6px' }}>: {c.discharge_date} s.d. {c.discharge_date}</td>
+                  <td style={{ fontSize: 9, padding: '2px 6px' }}>: {c.admission_date || '-'} s.d. {c.discharge_date}</td>
                 </tr>
                 <tr>
                   <td style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>Jenis Pelayanan</td>
@@ -225,8 +278,12 @@ export default function KKRForm() {
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>DPJP (Data Klaim)</td>
-                  <td style={{ fontSize: 9, padding: '2px 6px' }}>: ……………………………</td>
+                  <td style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>Length of Stay (LOS)</td>
+                  <td style={{ fontSize: 9, padding: '2px 6px' }}>: {c.alos ?? '-'} hari</td>
+                </tr>
+                <tr>
+                  <td style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>DPJP</td>
+                  <td style={{ fontSize: 9, padding: '2px 6px' }}>: {c.dpjp || unavailable}</td>
                 </tr>
                 <tr>
                   <td style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>Sumber Data</td>
@@ -241,12 +298,8 @@ export default function KKRForm() {
                   <td style={{ fontSize: 9, padding: '2px 6px' }}>: INA-CBG __  iDRG __</td>
                 </tr>
                 <tr>
-                  <td style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>Jumlah Diagnosis (Klaim)</td>
-                  <td style={{ fontSize: 9, padding: '2px 6px' }}>: {jumlahDiag}</td>
-                </tr>
-                <tr>
-                  <td style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>Jumlah Prosedur (Klaim)</td>
-                  <td style={{ fontSize: 9, padding: '2px 6px' }}>: {jumlahProc}</td>
+                  <td style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px' }}>Jumlah Diagnosis / Prosedur</td>
+                  <td style={{ fontSize: 9, padding: '2px 6px' }}>: {jumlahDiag} / {jumlahProc}</td>
                 </tr>
               </tbody>
             </table>
@@ -445,7 +498,13 @@ export default function KKRForm() {
         {/* ════════════════════ SECTION 4: KNAVP ════════════════════ */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, marginTop: 8, alignItems: 'start' }}>
           <div>
-            <div className="kkr-section-header">4. HASIL VALIDASI RULE OTOMATIS (KNAVP)</div>
+            <div className="kkr-section-header">4. HASIL VALIDASI KNAVP</div>
+            <p style={{ fontSize: 9 }}>{data.saved_review ? 'Hasil review tersimpan. ' : 'Hasil evaluasi baru. '}{knavp?.catalog_version}</p>
+            {knavp?.scoring_defined === false && <p style={{ fontSize: 9 }}>
+              {(data.rule_assessments || []).filter(r => r.status === 'needs_review').length} aturan memerlukan verifikasi:
+              {' '}{(data.rule_assessments || []).filter(r => r.status === 'needs_review').map(r => r.rule_id).join(', ') || '-'}.
+              {' '}Tidak ada alert tidak berarti seluruh aturan telah dinilai.
+            </p>}
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -454,8 +513,8 @@ export default function KKRForm() {
                   <TH style={{ width: '15%' }}>Kelompok Rule</TH>
                   <TH>Deskripsi Rule / Pesan Validasi</TH>
                   <TH style={{ width: '18%' }}>Status Sistem</TH>
-                  <TH style={{ width: '6%' }}>Bobot</TH>
-                  <TH style={{ width: '6%' }}>Skor</TH>
+                  <TH style={{ width: '6%' }}>Severity</TH>
+                  <TH style={{ width: '6%' }}>Bobot arsip</TH>
                 </tr>
               </thead>
               <tbody>
@@ -471,32 +530,31 @@ export default function KKRForm() {
                       <TD style={{ textAlign: 'center', fontSize: 8 }}>
                         {r ? <><span style={{ color: '#dc2626' }}>☑ Terindikasi</span>  ☐ Tidak</> : <>☐ Terindikasi  ☐ Tidak</>}
                       </TD>
-                      <TD style={{ textAlign: 'center', fontWeight: 700 }}>{bobot}</TD>
-                      <TD style={{ textAlign: 'center', fontWeight: 700, color: r ? '#dc2626' : 'inherit' }}>{r ? bobot : ''}</TD>
+                      <TD style={{ textAlign: 'center', fontWeight: 700 }}>{r?.severity || ''}</TD>
+                      <TD style={{ textAlign: 'center' }}>{r ? bobot : ''}</TD>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
             <div style={{ fontSize: 7.5, marginTop: 2, color: '#555' }}>
-              Keterangan Bobot Rule: Combination Code=4, Includes/Excludes=3, Procedure=3, Underlying Cause=2, Unbundling/Omit=2, Administrative=1, Age/LOS=1
+              Lampiran V menetapkan severity dan rekomendasi per aturan, tanpa bobot numerik atau ambang skor. Bobot yang muncul hanya berasal dari review lama.
             </div>
           </div>
           {/* Ringkasan Skor */}
           <div style={{ width: 160, border: '1.5px solid #0e3c6c', borderRadius: 4, padding: 8, background: '#f0f9ff' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#0e3c6c', textAlign: 'center', marginBottom: 6 }}>RINGKASAN SKOR DAN RISIKO (OTOMATIS)</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#0e3c6c', textAlign: 'center', marginBottom: 6 }}>RINGKASAN REVIEW</div>
             <div style={{ textAlign: 'center', marginBottom: 4 }}>
-              <div style={{ fontSize: 8, color: '#555' }}>TOTAL SKOR</div>
-              <div style={{ fontSize: 8, color: '#555' }}>(Σ Bobot Rule Terindikasi)</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: totalSkor >= 8 ? '#ef4444' : totalSkor >= 4 ? '#f59e0b' : '#22c55e', lineHeight: 1.2, border: '2px solid #0e3c6c', borderRadius: 6, margin: '4px auto', width: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ fontSize: 8, color: '#555' }}>{knavp?.scoring_defined ? 'SKOR TERSIMPAN DARI REVIEW LAMA' : 'SKOR TIDAK DITETAPKAN LAMPIRAN V'}</div>
+              <div style={{ fontSize: 20, color: '#333', margin: '4px auto' }}>
                 {totalSkor}
               </div>
             </div>
             <div style={{ fontSize: 8, fontWeight: 700, color: '#0e3c6c', marginTop: 6, marginBottom: 2 }}>TINGKAT RISIKO</div>
-            <div style={{ fontSize: 8 }}>(Otomatis)</div>
+            <div style={{ fontSize: 8 }}>{tingkatRisiko}</div>
             <RiskGauge tingkat={tingkatRisiko} />
             <div style={{ marginTop: 8, fontSize: 8 }}>
-              {[['Rendah', '(Skor 0–3)'], ['Sedang', '(Skor 4–7)'], ['Tinggi', '(Skor ≥ 8)']].map(([l, s]) => (
+              {[['Rendah', ''], ['Sedang', ''], ['Tinggi', '']].map(([l, s]) => (
                 <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
                   <span>{l === tingkatRisiko ? '☑' : '☐'}</span>
                   <span style={{ fontWeight: l === tingkatRisiko ? 700 : 400 }}>{l}</span>
@@ -512,9 +570,9 @@ export default function KKRForm() {
           <div>
             <div className="kkr-section-header">5. REKOMENDASI DAN KEPUTUSAN SISTEM</div>
             <div style={{ border: '1px solid #bcd', padding: 8, minHeight: 100, background: '#f8fafc' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#0e3c6c', marginBottom: 6 }}>REKOMENDASI SISTEM (OTOMATIS)</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#0e3c6c', marginBottom: 6 }}>{rekSistem}</div>
               {[
-                ['Monitoring (Tidak perlu tindak lanjut)', isMonitor || totalSkor === 0],
+                ['Monitoring (Tidak perlu tindak lanjut)', isMonitor || rekSistem === 'Tidak perlu tindak lanjut'],
                 ['Audit Sampling (sampling)', isSampling],
                 ['Direkomendasikan On-Site Audit', isOnSite],
               ].map(([label, checked]) => (

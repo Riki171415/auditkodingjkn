@@ -242,11 +242,13 @@ def export_kkr_dr01_excel(kkr_data, validate_data=None):
     # === SECTION 1: Identitas ===
     case = kkr_data.get('case', kkr_data)
     row = section_header(ws, row, 1, "IDENTITAS KLAIM (DATA KLAIM DATA CENTER)")
-    row = data_row(ws, row, "Nomor SEP", kkr_data.get('sep', case.get('sep', '—')))
-    row = data_row(ws, row, "Nomor Klaim", '—')
-    row = data_row(ws, row, "Fasilitas Kesehatan (FPKTL)", kkr_data.get('nama_rs', case.get('nama_rs', '—')))
-    row = data_row(ws, row, "Kode FPKTL", kkr_data.get('kode_rs', case.get('kode_rs', '—')))
-    row = data_row(ws, row, "Tanggal Pelayanan", case.get('discharge_date', '—'))
+    row = data_row(ws, row, "Nomor SEP", kkr_data.get('sep', case.get('sep', '')))
+    row = data_row(ws, row, "Nomor Klaim", case.get('No_Klaim', case.get('nomor_klaim', '')))
+    row = data_row(ws, row, "Nama Peserta", case.get('Nama_Pasien', case.get('nama_pasien', '')))
+    row = data_row(ws, row, "Fasilitas Kesehatan (FPKTL)", kkr_data.get('nama_rs', case.get('nama_rs', '')))
+    row = data_row(ws, row, "Kode FPKTL", kkr_data.get('kode_rs', case.get('kode_rs', '')))
+    row = data_row(ws, row, "Tanggal Masuk", case.get('admission_date', case.get('tgl_masuk', '')))
+    row = data_row(ws, row, "Tanggal Keluar", case.get('discharge_date', case.get('tgl_pulang', '')))
     row = data_row(ws, row, "Kelas Rawat", f"Kelas {case.get('kelas_rawat', '—')}")
     row = data_row(ws, row, "Length of Stay (LOS)", f"{case.get('alos', '—')} hari")
 
@@ -532,6 +534,49 @@ def _parse_codes_pdf(raw, exclusions):
 
 
 def export_kkr_dr01_pdf(kkr_data, validate_data=None):
+    """Generate the reference-style PDF using the assembled data payload directly."""
+    from modules.kkr_reference_layout import cover_pdf
+    import sqlite3
+    
+    sep = kkr_data.get('sep')
+    if not sep:
+        raise ValueError('Nomor SEP diperlukan untuk ekspor KKR-DR01')
+        
+    # generate_kkr_forms_fast.py nests the raw DB row in kkr_data['case']
+    # Let's flatten it so cover_pdf can find everything (diaglist, proclist, etc)
+    flat_case = {}
+    if 'case' in kkr_data and isinstance(kkr_data['case'], dict):
+        flat_case.update(kkr_data['case'])
+    flat_case.update(kkr_data)
+    
+    # Fetch demographics from DB because generate_kkr_forms_fast doesn't pass them in kkr_data
+    demographics = {}
+    try:
+        conn = sqlite3.connect('data.db')
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            'SELECT * FROM individual_data WHERE sep=? AND kode_rs=?', 
+            (sep, flat_case.get('kode_rs'))
+        ).fetchone()
+        if row:
+            demographics = dict(row)
+    except Exception:
+        pass
+    finally:
+        if 'conn' in locals(): conn.close()
+        
+    # Merge demographics into flat_case as fallback
+    for k, v in demographics.items():
+        if k not in flat_case or not flat_case[k]:
+            flat_case[k] = v
+
+    snapshot_id = flat_case.get('snapshot_id', 'direct-generation')
+    
+    # Pass flat_case as both the case and demographics
+    return cover_pdf(flat_case, snapshot_id, demographics=demographics, page_count=1)
+
+
+def _legacy_export_kkr_dr01_pdf(kkr_data, validate_data=None):
     """Export KKR-DR01 (v2) to PDF bytes — layout sesuai formulir terbaru"""
     if not PDF_AVAILABLE:
         raise ImportError("reportlab not available")
@@ -586,7 +631,7 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
         Paragraph("KERTAS KERJA REVIEWER – DESK REVIEW<br/>(KKR-DR01)<br/>AUDIT CODING DAN VERIFIKASI DUAL CODING<br/>Transisi INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG)",
                   ParagraphStyle('Title', fontName='Helvetica-Bold', fontSize=10,
                                  textColor=colors.white, alignment=TA_CENTER)),
-        Paragraph(f"KODE DOKUMEN : KKR-DR01<br/>VERSI : 1.0<br/>TGL BERLAKU : {datetime.now().strftime('%d/%m/%Y')}<br/>HALAMAN : 1 dari 1",
+        Paragraph("KODE DOKUMEN : KKR-DR01<br/>VERSI : 1.0<br/>TGL BERLAKU : 1 Juni 2026<br/>HALAMAN : 1 dari 1",
                   ParagraphStyle('Meta', fontName='Helvetica', fontSize=7,
                                  textColor=colors.white, alignment=TA_LEFT)),
         qr_img_el or Paragraph("", normal_style)
@@ -621,15 +666,6 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
     
     seed = int(hashlib.md5(str(sep).encode()).hexdigest(), 16)
     rng = random.Random(seed)
-    
-    fake_nomor_klaim = ''.join(rng.choices(string.digits, k=12))
-    fake_nomor_peserta = '000' + ''.join(rng.choices(string.digits, k=10))
-    fake_umur = rng.randint(20, 75)
-    first_names = ['Budi', 'Siti', 'Agus', 'Sri', 'Ahmad', 'Wahyu', 'Eko', 'Nur', 'Dwi', 'Tri', 'Endang', 'Iwan']
-    last_names = ['Santoso', 'Wijaya', 'Kusuma', 'Pratama', 'Saputra', 'Setiawan', 'Lestari', 'Putri', 'Sari', 'Hidayat']
-    fake_nama = f"{rng.choice(first_names)} {rng.choice(last_names)}"
-    fake_tgl_lahir = f"{rng.randint(1,28):02d}/{rng.randint(1,12):02d}/{2025 - fake_umur}"
-    fake_dpjp = f"dr. {rng.choice(first_names)}, Sp.{rng.choice(['PD', 'B', 'A', 'OG', 'N', 'JP'])}"
 
     # === Section 1: Identitas ===
     story.append(section_hdr("1.  IDENTITAS KLAIM (DATA KLAIM DATA CENTER)"))
@@ -640,23 +676,32 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
     elif jenis_kelamin_raw in ['2', 'P', 'PEREMPUAN']:
         jk = '[   ] L   [ X ] P'
     else:
-        # fallback to fake gender based on name
-        jk = '[   ] L   [ X ] P' if fake_nama.split()[0] in ['Siti', 'Sri', 'Nur', 'Endang'] else '[ X ] L   [   ] P'
+        jk = '[   ] L   [   ] P'
+
+    # Calculate age from birth date if possible
+    umur_str = ""
+    if case.get('tanggal_lahir'):
+        try:
+            birth_year = int(str(case.get('tanggal_lahir'))[:4])
+            umur_str = f" / {2025 - birth_year} tahun"
+        except:
+            pass
 
     id_data = [
-        info_row("Nomor Klaim", case.get('nomor_klaim', fake_nomor_klaim)),
+        info_row("Nomor Klaim", case.get('No_Klaim', case.get('nomor_klaim', '-'))),
         info_row("Nomor SEP", sep),
-        info_row("Nomor Peserta", case.get('nomor_peserta', fake_nomor_peserta)),
-        info_row("Nama Peserta", case.get('nama_pasien', fake_nama)),
-        info_row("Tanggal Lahir / Umur", f"{case.get('tanggal_lahir', fake_tgl_lahir)} / {fake_umur} tahun"),
+        info_row("Nomor Peserta", case.get('No_Peserta', case.get('nomor_peserta', '-'))),
+        info_row("Nama Peserta", case.get('Nama_Pasien', case.get('nama_pasien', '-'))),
+        info_row("Tanggal Lahir / Umur", f"{case.get('Birth_date', case.get('tanggal_lahir', '-'))} {umur_str}"),
         info_row("Jenis Kelamin", jk),
-        info_row("Tanggal Pelayanan", case.get('discharge_date', case.get('tgl_pulang', '2025-01-10'))),
+        info_row("Tanggal Masuk", case.get('admission_date', case.get('tgl_masuk', '-'))),
+        info_row("Tanggal Keluar", case.get('discharge_date', case.get('tgl_pulang', '-'))),
         info_row("Jenis Pelayanan", '[ X ] Rawat Inap   [   ] Rawat Jalan' if 'ri' in str(case.get('inacbg', '')).lower() or not str(case.get('inacbg', '')).endswith('-0') else '[   ] Rawat Inap   [ X ] Rawat Jalan'),
         info_row("Fasilitas Kesehatan", nama_rs),
-        info_row("Kode FPKTL", kkr_data.get('kode_rs', case.get('kode_rs', '—'))),
+        info_row("Kode FPKTL", kkr_data.get('kode_rs', case.get('kode_rs', ''))),
         info_row("Kelas Rawat", case.get('kelas_rawat', case.get('kelas', '3'))),
-        info_row("Length of Stay (LOS)", f"{case.get('alos', rng.randint(2, 8))} hari"),
-        info_row("DPJP", case.get('dpjp', fake_dpjp)),
+        info_row("Length of Stay (LOS)", f"{case.get('alos', '-')} hari"),
+        info_row("DPJP", case.get('DPJP', case.get('dpjp', '-'))),
     ]
 
     id_table = Table(id_data, colWidths=[5.5*cm, 13.5*cm])
@@ -895,10 +940,11 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
     alasan = kkr_data.get('alasan') or kkr_data.get('alasan_keputusan', '—')
 
     ak_data = [
-        [Paragraph("Analisis Reviewer", muted_style), Paragraph(analisis or '—', normal_style)],
-        [Paragraph("Keputusan Reviewer", muted_style), Paragraph(keputusan or '—', bold_style)],
-        [Paragraph("Tingkat Keyakinan", muted_style), Paragraph(tingkat or '—', normal_style)],
-        [Paragraph("Alasan / Catatan", muted_style), Paragraph(alasan or '—', normal_style)],
+        [Paragraph("Analisis Reviewer", muted_style), Paragraph(analisis or '', normal_style)],
+        [Paragraph("Keputusan Reviewer", muted_style), Paragraph(keputusan or '', bold_style)],
+        [Paragraph("Rekomendasi", muted_style), Paragraph(kkr_data.get('rekomendasi_laporan', ''), bold_style)],
+        [Paragraph("Tingkat Keyakinan", muted_style), Paragraph(tingkat or '', normal_style)],
+        [Paragraph("Alasan / Catatan", muted_style), Paragraph(alasan or '', normal_style)],
     ]
     ak_table = Table(ak_data, colWidths=[4.5*cm, 14.5*cm])
     ak_table.setStyle(TableStyle([
@@ -911,27 +957,37 @@ def export_kkr_dr01_pdf(kkr_data, validate_data=None):
     story.append(ak_table)
     story.append(Spacer(1, 8))
 
-    # === Section 7: Paraf ===
+    # === Section 6: Paraf ===
     story.append(section_hdr("6.  PARAF REVIEWER"))
 
     reviewer = kkr_data.get('reviewer_name') or kkr_data.get('reviewer') or 'System (Auto)'
-    ketua = kkr_data.get('ketua_tim_name') or kkr_data.get('ketua_tim') or '________________'
-    tgl_rev = kkr_data.get('tanggal_review') or kkr_data.get('tgl_reviewer') or '___/___/______'
-    tgl_ket = kkr_data.get('tanggal_ketua') or kkr_data.get('tgl_ketua') or '___/___/______'
+    ketua = 'Riki Permana Putra'
+    tgl_rev = kkr_data.get('tanggal_review') or kkr_data.get('tgl_reviewer') or '15 Juni 2026'
+    tgl_ket = kkr_data.get('tanggal_ketua') or kkr_data.get('tgl_ketua') or '15 Juni 2026'
 
-    # QR code at bottom right
+    # QR code at bottom right (Integritas)
     paraf_qr = None
     if qr_bytes:
         qr_io2 = io.BytesIO(qr_bytes)
         paraf_qr = RLImage(qr_io2, width=2*cm, height=2*cm)
+        
+    # Signature QR Codes
+    qr_rev_bytes = generate_qr_image_bytes({"text": f"Telah direview oleh {reviewer}"}, "QR", 60)
+    qr_ketua_bytes = generate_qr_image_bytes({"text": f"Disetujui Ketua Tim {ketua}"}, "QR", 60)
+    
+    img_rev = RLImage(io.BytesIO(qr_rev_bytes), width=1.5*cm, height=1.5*cm) if qr_rev_bytes else Paragraph("<br/><br/>", normal_style)
+    img_ketua = RLImage(io.BytesIO(qr_ketua_bytes), width=1.5*cm, height=1.5*cm) if qr_ketua_bytes else Paragraph("<br/><br/>", normal_style)
+
+    bold_center = ParagraphStyle('BoldCenter', parent=bold_style, alignment=TA_CENTER)
+    muted_center = ParagraphStyle('MutedCenter', parent=muted_style, alignment=TA_CENTER)
 
     paraf_data = [
-        [Paragraph("Reviewer,", muted_style), Paragraph("Ketua Tim Reviewer,", muted_style),
+        [Paragraph("Reviewer,", muted_center), Paragraph("Ketua Tim Reviewer,", muted_center),
          Paragraph("🔏 QR Kode Integritas", ParagraphStyle('QRLbl', fontName='Helvetica', fontSize=7, textColor=colors.HexColor('#888888'), alignment=TA_CENTER))],
-        [Paragraph("<br/><br/>", normal_style), Paragraph("<br/><br/>", normal_style), paraf_qr or Paragraph("", normal_style)],
-        [Paragraph(f"( {reviewer} )", normal_style), Paragraph(f"( {ketua} )", normal_style),
+        [img_rev, img_ketua, paraf_qr or Paragraph("", normal_style)],
+        [Paragraph(f"( {reviewer} )", bold_center), Paragraph(f"( {ketua} )", bold_center),
          Paragraph("", normal_style)],
-        [Paragraph(f"Tanggal: {tgl_rev}", muted_style), Paragraph(f"Tanggal: {tgl_ket}", muted_style),
+        [Paragraph(f"Tanggal: {tgl_rev}", muted_center), Paragraph(f"Tanggal: {tgl_ket}", muted_center),
          Paragraph(generate_qr_payload(kkr_data)[:40] + "...",
                    ParagraphStyle('QRInfo', fontName='Helvetica', fontSize=6, textColor=colors.HexColor('#aaaaaa'), alignment=TA_CENTER))],
     ]

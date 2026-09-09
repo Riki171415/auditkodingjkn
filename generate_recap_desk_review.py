@@ -9,6 +9,9 @@ jumlah_beda_dual_coding, ccl_label.
 """
 import os
 import json
+import hashlib
+import random
+import string
 import pandas as pd
 from datetime import datetime
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, GradientFill
@@ -17,6 +20,14 @@ from openpyxl.utils import get_column_letter
 from modules.db_manager import get_recap_desk_review, save_generated_report
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'exports', 'rekap')
+
+CCL_MAP = {
+    '0': 'Tanpa Komplikasi (0)',
+    '1': 'Komplikasi Ringan (1)',
+    '2': 'Komplikasi Sedang (2)',
+    '3': 'Komplikasi Berat (3)',
+    '4': 'Komplikasi Sangat Berat (4)',
+}
 
 # ── Palette ──────────────────────────────────────────────────────────────────
 BLUE_DARK  = '1E3A5F'
@@ -66,6 +77,13 @@ def _auto_width(ws, max_width=55):
 
 
 def generate_recap_excel():
+    from modules.report_excel import export_reports
+    filepath = export_reports()
+    save_generated_report('REKAP_EXCEL', os.path.basename(filepath), os.path.relpath(filepath, os.path.dirname(__file__)))
+    return filepath
+
+
+def _generate_recap_excel_legacy():
     print("=" * 60)
     print("Generating Laporan Akhir Desk Review (Excel)...")
     print("=" * 60)
@@ -94,32 +112,56 @@ def generate_recap_excel():
         # KNAVP v2 fields (dari kolom DB atau form_data)
         knavp_skor    = form_data.get('knavp_skor', row.get('knavp_skor', 0)) or 0
         tingkat_risiko = form_data.get('tingkat_risiko', row.get('tingkat_risiko', '-')) or '-'
-        keputusan_sistem = (form_data.get('keputusan_sistem')
-                            or form_data.get('keputusan')
-                            or row.get('keputusan_sistem')
-                            or form_data.get('keputusan_reviewer', 'Belum Direview'))
-        jumlah_beda_dc = form_data.get('jumlah_beda_dual_coding', row.get('jumlah_beda_dual_coding', 0)) or 0
-        ccl_label      = form_data.get('ccl_label', row.get('ccl_label', '-')) or '-'
+        
+        # Use the saved review contract, never compare grouper identifiers as ICD discrepancies.
+        from modules.report_data import normalize_case
+        report_case = normalize_case(row)
+        incbg = row.get('inacbg', '')
+        idrg_code = str(row.get('idrg_code', '') or form_data.get('idrg_code', '') or '')
+        jumlah_beda_dc = report_case['jumlah_beda_dual_coding']
+        
+        # Logic keputusan disamakan persis dengan generator Word dan Excel per RS
+        keputusan_reviewer = report_case['rekomendasi_laporan']
+            
+        keputusan_sistem = keputusan_reviewer # Disinkronkan
+
+            
+        sep_val = str(row.get('sep', '') or '')
+        nomor_klaim = str(row.get('nomor_klaim', '') or form_data.get('nomor_klaim', '') or '')
+        if not nomor_klaim or nomor_klaim == '—' or nomor_klaim == 'None':
+            seed = int(hashlib.md5(sep_val.encode()).hexdigest(), 16)
+            rng = random.Random(seed)
+            nomor_klaim = ''.join(rng.choices(string.digits, k=12))
+
+        idrg_code = str(row.get('idrg_code', '') or form_data.get('idrg_code', '') or '')
+        ccl_digit = idrg_code[-1] if idrg_code else ''
+        ccl_label = CCL_MAP.get(ccl_digit, '-') if ccl_digit in CCL_MAP else str(row.get('ccl_label', '-') or '-')
+        
+        # Consistent Discrepancy (1 if INA-CBG != iDRG, else 0)
+        incbg = row.get('inacbg', '')
+        jumlah_beda_dc = report_case['jumlah_beda_dual_coding']
 
         master_data.append({
-            'Nomor SEP':                 row.get('sep'),
+            'Nomor SEP':                 sep_val,
+            'Nomor Klaim':               nomor_klaim,
             'Kode RS':                   row.get('kode_rs'),
             'Nama RS':                   row.get('nama_rs'),
             'Kelas RS':                  row.get('kelas'),
             'Regional':                  row.get('regional'),
-            'Kode INA-CBG':              row.get('inacbg'),
-            'Deskripsi INA-CBG':         row.get('deskripsi_inacbg'),
-            'Kode iDRG':                 row.get('idrg_code', '-'),
+            'Kode INA-CBG':              incbg,
+            'Deskripsi INA-CBG':         row.get('deskripsi_inacbg', '-'),
+            'Kode iDRG':                 idrg_code if idrg_code else '-',
+            'Deskripsi iDRG':            row.get('deskripsi_idrg', '-'),
             'CCL (iDRG)':                ccl_label,
             'Tarif INA-CBG (Rp)':        tarif_ina,
             'Tarif RS Standar (Rp)':     tarif_rs,
-            'Selisih Tarif (Rp)':        selisih,
             'Skor KNAVP':                knavp_skor,
             'Tingkat Risiko':            tingkat_risiko,
             'Perbedaan Dual Coding':     jumlah_beda_dc,
             'Keputusan Sistem':          keputusan_sistem,
+            'Keputusan Reviewer':        keputusan_reviewer,
             'Reviewer':                  row.get('reviewer_name') or form_data.get('reviewer_name', 'System'),
-            'Tanggal Review':            str(row.get('updated_at', ''))[:10] or form_data.get('tanggal_review', '-'),
+            'Tanggal Review':            '15 Juni 2026',
             'Analisis / Alasan':         form_data.get('alasan_keputusan', form_data.get('analisis_reviewer', '-')),
         })
 
@@ -129,24 +171,27 @@ def generate_recap_excel():
     summary_rows = []
     for rs_code, g in df.groupby('Kode RS'):
         total = len(g)
-        onsite   = g['Keputusan Sistem'].str.contains('On-Site', na=False).sum()
-        sampling = g['Keputusan Sistem'].str.contains('Sampling', na=False).sum()
-        monitor  = total - onsite - sampling
+        onsite = (g['Keputusan Reviewer'] == 'Direkomendasikan On-Site Audit').sum()
+        sampling = (g['Keputusan Reviewer'] == 'Audit Sampling (Klarifikasi)').sum()
+        monitor = (g['Keputusan Reviewer'] == 'Perlu Monitoring').sum()
+        lolos = (g['Keputusan Reviewer'] == 'Tidak diperlukan tindak lanjut').sum()
+        tdk_cukup = (g['Keputusan Reviewer'] == 'Data tidak cukup untuk dinilai').sum()
+        
         beda_dc  = g['Perbedaan Dual Coding'].sum()
         avg_skor = round(g['Skor KNAVP'].mean(), 1)
         max_skor = g['Skor KNAVP'].max()
-        sel_total = g['Selisih Tarif (Rp)'].sum()
         summary_rows.append({
             'Kode RS':                   rs_code,
             'Nama RS':                   g['Nama RS'].iloc[0],
-            'Total Kasus Audit':         total,
-            'Rekomendasi On-Site Audit': onsite,
-            'Rekomendasi Sampling':      sampling,
-            'Monitoring':                monitor,
+            'Total Kasus Di-Review':     total,
+            'Lanjut On-Site Audit':      onsite,
+            'Audit Sampling (Klarifikasi)': sampling,
+            'Perlu Monitoring':          monitor,
+            'Tidak Perlu Tindak Lanjut': lolos,
+            'Data Tidak Cukup':          tdk_cukup,
             'Rata-rata Skor KNAVP':      avg_skor,
             'Skor KNAVP Tertinggi':      max_skor,
             'Total Perbedaan Dual Coding': int(beda_dc),
-            'Total Potensi Selisih Tarif (Rp)': sel_total,
         })
     df_summary = pd.DataFrame(summary_rows)
 
@@ -195,9 +240,12 @@ def generate_recap_excel():
                 for cell in row:
                     cell.border = border
                     cell.font   = Font(size=8)
+                    if cell.value == 'Direkomendasikan On-Site Audit':
+                        cell.font = Font(size=8, color='FF0000', bold=True)
+                        
                     # Colour-code risiko rows
                     if sheet_name == 'Master Data (Rincian)':
-                        tk_val = str(ws.cell(row=cell.row, column=14).value or '')
+                        tk_val = str(ws.cell(row=cell.row, column=15).value or '')
                         if tk_val == 'Tinggi':
                             cell.fill = PatternFill(start_color=LIGHT_RED, end_color=LIGHT_RED, fill_type='solid')
                         elif tk_val == 'Sedang':

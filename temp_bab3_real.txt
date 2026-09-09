@@ -1,0 +1,17 @@
+BAB III KESIMPULAN DAN REKOMENDASI', level=1)
+
+    document.add_heading('A. Kesimpulan', level=2)
+    if dom_kat == '-' or total_temuan_all == 0:
+        add_p(f"Pelaksanaan Desk Review terhadap data klaim {rs_name} menyimpulkan bahwa dari {len(cases)} kasus sampel yang diperiksa, kualitas pengodean telah terbukti sangat baik dan mematuhi aturan standar tanpa ada deteksi ketidaksesuaian berarti.", align=3, size_pt=12, space_after_pt=8)
+    else:
+        add_p(
+            f"Pelaksanaan Desk Review terhadap data klaim {rs_name} menyimpulkan bahwa dari {len(cases)} kasus sampel yang diperiksa, terdapat indikasi ketidaksesuaian pengodean yang memerlukan perhatian khusus, terutama pada kelompok aturan {dom_label}. "
+            "Sebagian kasus memiliki tingkat risiko tinggi terhadap kewajaran tarif dan pengelompokan iDRG, sehingga validasi lanjutan mutlak diperlukan untuk memastikan kesesuaian antara klaim dengan dokumen rekam medis pasien.",
+            align=3, size_pt=12, space_after_pt=8
+        )
+
+    document.add_heading('B. Rekomendasi', level=2)
+    add_p("Berdasarkan hasil analisis reviewer atas keseluruhan temuan Desk Review, direkomendasikan langkah-langkah tindak lanjut sebagai berikut:", align=WD_ALIGN_PARAGRAPH.LEFT, size_pt=12, space_after_pt=4)
+    rekom_items = [
+        ("●", "tidak diperlukan tindak lanjut bagi kasus yang lolos validasi tanpa catatan;"),
+        ("●", "klarifikasi kepada PMIK terkait ketepatan penerapan aturan kombinasi kode dan pedoman ICS;"),

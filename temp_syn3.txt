@@ -1,0 +1,15 @@
+        p.add_run(rest)
+        
+    add_p("(Catatan: Rincian selisih kode per kasus dapat dilihat pada Lampiran 1: KKR-DR01)", size_pt=10, bold=True, space_after_pt=12)
+document.add_page_break()
+    # ── BAB III KESIMPULAN DAN REKOMENDASI ────────────────────────────────────
+    document.add_heading('BAB III KESIMPULAN DAN REKOMENDASI', level=1)
+
+    document.add_heading('A. Kesimpulan', level=2)
+    if dom_kat == '-' or total_temuan_all == 0:
+        add_p(f"Pelaksanaan Desk Review terhadap data klaim {rs_name} menyimpulkan bahwa dari {len(cases)} kasus sampel yang diperiksa, kualitas pengodean telah terbukti sangat baik dan mematuhi aturan standar tanpa ada deteksi ketidaksesuaian berarti.", align=3, size_pt=12, space_after_pt=8)
+    else:
+        add_p(
+            f"Pelaksanaan Desk Review terhadap data klaim {rs_name} menyimpulkan bahwa dari {len(cases)} kasus sampel yang diperiksa, terdapat indikasi ketidaksesuaian pengodean yang memerlukan perhatian khusus, terutama pada kelompok aturan {dom_label}. "
+            "Sebagian kasus memiliki tingkat risiko tinggi terhadap kewajaran tarif dan pengelompokan iDRG, sehingga validasi lanjutan mutlak diperlukan untuk memastikan kesesuaian antara klaim dengan dokumen rekam medis pasien.",
+            align=3, size_pt=12, space_after_pt=8

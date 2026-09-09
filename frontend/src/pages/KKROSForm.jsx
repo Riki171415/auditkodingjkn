@@ -37,12 +37,13 @@ export default function KKROSForm() {
   });
 
   useEffect(() => {
+    setLoading(true);
     axios.get(`/api/validate/${encodeURIComponent(sep)}`)
       .then(res => {
         const cData = res.data.data;
         setData(cData);
         
-        axios.get(`/api/kkr-os01/load/${encodeURIComponent(sep)}`)
+        return axios.get(`/api/kkr-os01/load/${encodeURIComponent(sep)}`)
           .then(res_load => {
             if (res_load.data.data && res_load.data.data.form_data && Object.keys(res_load.data.data.form_data).length > 0) {
               setFormData(f => ({ ...f, ...res_load.data.data.form_data }));
@@ -54,13 +55,13 @@ export default function KKROSForm() {
               const utamaKode = diags[0] || '';
               const utamaDesc = utamaKode ? (cData.case.icd_desc_map?.[utamaKode] || '-') : '';
               
-              const sekunderInit = Array(5).fill({ klaim_kode: '', klaim_desc: '', rev_kode: '', rev_desc: '', sesuai: '', catatan: '' }).map((_, i) => {
+              const sekunderInit = Array(Math.max(5, diags.length - 1)).fill({ klaim_kode: '', klaim_desc: '', rev_kode: '', rev_desc: '', sesuai: '', catatan: '' }).map((_, i) => {
                 const kode = diags[i+1] || '';
                 const desc = kode ? (cData.case.icd_desc_map?.[kode] || '-') : '';
                 return { klaim_kode: kode, klaim_desc: desc, rev_kode: kode, rev_desc: desc, sesuai: '', catatan: '' }; // Pre-fill rev == klaim
               });
               
-              const procInit = Array(5).fill({ klaim_kode: '', klaim_desc: '', rev_kode: '', rev_desc: '', sesuai: '', catatan: '' }).map((_, i) => {
+              const procInit = Array(Math.max(5, procs.length)).fill({ klaim_kode: '', klaim_desc: '', rev_kode: '', rev_desc: '', sesuai: '', catatan: '' }).map((_, i) => {
                 const kode = procs[i] || '';
                 const desc = kode ? (cData.case.icd_desc_map?.[kode] || '-') : '';
                 return { klaim_kode: kode, klaim_desc: desc, rev_kode: kode, rev_desc: desc, sesuai: '', catatan: '' };
@@ -79,6 +80,7 @@ export default function KKROSForm() {
           });
       })
       .catch(err => {
+        setData(null);
         console.error(err);
         setLoading(false);
       });
@@ -147,35 +149,41 @@ export default function KKROSForm() {
         </div>
       </div>
 
-      <div className="kkr-page" style={{ maxWidth: 1000, margin: '0 auto', background: 'white', padding: 24, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+      {/* ── A4 Page ── */}
+      <div className="a4-container kkr-page">
         
         {/* HEADER */}
-        <div className="kkr-header-container">
-          <div className="kkr-logo-box">
-             <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
-               <SquareActivity size={32} color="#00838f" />
-               <div style={{ fontSize: 11, fontWeight: 700, color: '#0e3c6c', lineHeight: 1.2 }}>
-                 KEMENTERIAN KESEHATAN<br/>REPUBLIK INDONESIA
-               </div>
-             </div>
-          </div>
-          <div className="kkr-title-box">
-             <h2 style={{ fontSize: 18, margin: 0, color: '#0e3c6c' }}>KERTAS KERJA REVIEWER &ndash; ON SITE AUDIT</h2>
-             <h3 style={{ fontSize: 16, margin: '4px 0', color: '#00838f' }}>(KKR-OS01)</h3>
-             <h4 style={{ fontSize: 11, margin: '8px 0 2px 0', color: '#0e3c6c' }}>AUDIT CODING DAN VERIFIKASI DUAL CODING</h4>
-             <div style={{ fontSize: 10 }}>Transisi INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG)</div>
-          </div>
-          <div className="kkr-doc-info">
-             <table className="kkr-doc-table">
-               <tbody>
-                 <tr><td width="55%">KODE DOKUMEN</td><td>: KKR-OS01</td></tr>
-                 <tr><td>VERSI</td><td>: 1.0</td></tr>
-                 <tr><td>TANGGAL BERLAKU</td><td>: ____/____/________</td></tr>
-                 <tr><td>HALAMAN</td><td>: 1 dari 1</td></tr>
-               </tbody>
-             </table>
-          </div>
-        </div>
+        <table className="kkr-pdf-header">
+          <tbody>
+            <tr>
+              <td style={{ width: '20%', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.2)' }}>
+                <div style={{ fontSize: 9, fontWeight: 'bold', lineHeight: 1.2 }}>
+                  KEMENTERIAN<br/>KESEHATAN<br/>REPUBLIK INDONESIA
+                </div>
+              </td>
+              <td style={{ width: '45%', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.2)' }}>
+                <div style={{ fontSize: 11, fontWeight: 'bold', marginBottom: 4 }}>
+                  KERTAS KERJA REVIEWER – ON SITE AUDIT<br/>(KKR-OS01)
+                </div>
+                <div style={{ fontSize: 9 }}>AUDIT CODING DAN VERIFIKASI DUAL CODING</div>
+                <div style={{ fontSize: 8 }}>Transisi INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG)</div>
+              </td>
+              <td style={{ width: '25%', textAlign: 'left', borderRight: '1px solid rgba(255,255,255,0.2)' }}>
+                <div className="kkr-header-meta" style={{ lineHeight: 1.5 }}>
+                  <strong>KODE DOKUMEN</strong> : KKR-OS01<br/>
+                  <strong>VERSI</strong> : 1.0<br/>
+                  <strong>TGL BERLAKU</strong> : {new Date().toLocaleDateString('id-ID')}<br/>
+                  <strong>HALAMAN</strong> : 1 dari 1
+                </div>
+              </td>
+              <td style={{ width: '10%', textAlign: 'center' }}>
+                <div style={{ width: 40, height: 40, margin: '0 auto', background: 'white', padding: 2 }}>
+                  <img src={`/api/export/dr01/qr/${encodeURIComponent(sep)}`} alt="QR" style={{ width: '100%', height: '100%' }} />
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         {/* SECTION 1 & 2 */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>

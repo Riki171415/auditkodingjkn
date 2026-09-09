@@ -64,8 +64,10 @@ def save_kkr_dr01(sep, data):
     kode_rs = data.get('kode_rs', '')
     reviewer_name = data.get('reviewer_name', '')
     
-    # Store all form data in tindakan_reviewer as JSON
-    form_data_json = json.dumps({
+    # Preserve existing review fields when the frontend edits only notes/signatures.
+    previous = cursor.execute('SELECT tindakan_reviewer, triggered_rules_json, reviewer_name FROM kkr_dr01 WHERE sep=?', (sep,)).fetchone()
+    stored_form = json.loads(previous['tindakan_reviewer'] or '{}') if previous else {}
+    defaults = {
         'analisis_reviewer': data.get('analisis_reviewer', ''),
         'keputusan': data.get('keputusan_reviewer') or data.get('keputusan', ''),
         'tingkat_keyakinan': data.get('tingkat_keyakinan', ''),
@@ -79,9 +81,13 @@ def save_kkr_dr01(sep, data):
         'keputusan_sistem': data.get('keputusan_sistem', ''),
         'jumlah_beda_dual_coding': data.get('jumlah_beda_dual_coding', 0),
         'ccl_label': data.get('ccl_label', '')
-    }, ensure_ascii=False)
+    }
+    stored_form.update({key: data[key] for key in data if key not in ('sep', 'kode_rs', 'triggered_rules')})
+    form_data_json = json.dumps({**defaults, **stored_form}, ensure_ascii=False)
+    if previous and 'reviewer_name' not in data:
+        reviewer_name = previous['reviewer_name']
     
-    triggered_rules_json = json.dumps(data.get('triggered_rules', []), ensure_ascii=False)
+    triggered_rules_json = json.dumps(data['triggered_rules'], ensure_ascii=False) if 'triggered_rules' in data else (previous['triggered_rules_json'] if previous else '[]')
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     cursor.execute('''
@@ -156,17 +162,18 @@ def load_kkr_os01(sep):
         return row_dict
     return None
 
-def get_recap_desk_review():
+def get_recap_desk_review(sep=None, kode_rs=None):
     """Get recapitulation of all Desk Reviews joined with case data"""
     conn = get_audit_db()
     cursor = conn.cursor()
     cursor.execute('''
         SELECT 
-            k.sep, k.kode_rs, k.reviewer_name, k.tindakan_reviewer, k.updated_at,
-            i.nama_rs, i.kelas, i.regional, i.inacbg, i.tarif_inacbg, i.tarif_rs
+            k.sep, k.kode_rs, k.reviewer_name, k.tindakan_reviewer, k.triggered_rules_json, k.updated_at,
+            i.*
         FROM kkr_dr01 k
-        LEFT JOIN datadb.individual_data i ON k.sep = i.sep
-    ''')
+        LEFT JOIN datadb.individual_data i ON k.sep = i.sep AND k.kode_rs = i.kode_rs
+        WHERE (? IS NULL OR k.sep = ?) AND (? IS NULL OR k.kode_rs = ?)
+    ''', (sep, sep, kode_rs, kode_rs))
     rows = cursor.fetchall()
     conn.close()
     
@@ -177,6 +184,11 @@ def get_recap_desk_review():
             fd = json.loads(row.get('tindakan_reviewer') or '{}')
         except:
             fd = {}
+            
+        try:
+            tr = json.loads(row.get('triggered_rules_json') or '[]')
+        except:
+            tr = []
         
         recap.append({
             'sep': row['sep'],
@@ -187,11 +199,33 @@ def get_recap_desk_review():
             'tanggal': row['updated_at'],
             'updated_at': row['updated_at'],
             'inacbg': row['inacbg'],
+            'deskripsi_inacbg': row.get('deskripsi_inacbg', ''),
+            'idrg_code': row.get('idrg_code', fd.get('idrg_code', '')),
+            'deskripsi_idrg': row.get('deskripsi_idrg', fd.get('deskripsi_idrg', '')),
+            'diaglist': row.get('diaglist', ''),
+            'proclist': row.get('proclist', ''),
+            'diaglist_idrg': row.get('diaglist_idrg', ''),
+            'proclist_idrg': row.get('proclist_idrg', ''),
+            'alos': row.get('alos', 0),
             'tarif_inacbg': row['tarif_inacbg'],
             'tarif_rs': row['tarif_rs'],
             'keputusan': fd.get('keputusan', '-'),
             'rekomendasi_lanjut': fd.get('rekomendasi_lanjut', '-'),
-            'tindakan_reviewer': row.get('tindakan_reviewer')
+            'tindakan_reviewer': row.get('tindakan_reviewer'),
+            'triggered_rules': tr,
+            'triggered_rules_json': row.get('triggered_rules_json'),
+            'regional': row.get('regional'),
+            'knavp_skor': fd.get('knavp_skor', 0),
+            'tingkat_risiko': fd.get('tingkat_risiko', ''),
+            'jumlah_beda_dual_coding': fd.get('jumlah_beda_dual_coding', 0),
+            # NEW: Patient identity fields
+            'nama_pasien': row.get('Nama_Pasien') or row.get('nama_pasien', ''),
+            'tanggal_lahir': row.get('Birth_date') or row.get('tanggal_lahir', ''),
+            'tgl_masuk': row.get('admission_date') or row.get('tgl_masuk', ''),
+            'tgl_pulang': row.get('discharge_date') or row.get('tgl_pulang', ''),
+            'jenis_kelamin': row.get('SEX') or row.get('jenis_kelamin', ''),
+            'kelas_rawat': row.get('kelas_rawat', ''),
+            'keputusan_sistem': fd.get('keputusan_sistem', '')
         })
     return recap
 
@@ -202,7 +236,7 @@ def get_recap_onsite():
     cursor.execute('''
         SELECT 
             k.sep, k.kode_rs, k.reviewer_name, k.form_data_json, k.updated_at,
-            i.nama_rs, i.kelas, i.regional, i.inacbg, i.tarif_inacbg, i.tarif_rs
+            i.nama_rs, i.kelas, i.regional, i.inacbg, i.deskripsi_inacbg, i.idrg_code, i.deskripsi_idrg, i.diaglist, i.proclist, i.tarif_inacbg, i.tarif_rs
         FROM kkr_os01 k
         LEFT JOIN datadb.individual_data i ON k.sep = i.sep
     ''')
@@ -224,6 +258,11 @@ def get_recap_onsite():
             'reviewer_name': row['reviewer_name'],
             'tanggal': row['updated_at'],
             'inacbg': row['inacbg'],
+            'deskripsi_inacbg': row.get('deskripsi_inacbg', ''),
+            'idrg_code': row.get('idrg_code', fd.get('idrg_code', '')),
+            'deskripsi_idrg': row.get('deskripsi_idrg', fd.get('deskripsi_idrg', '')),
+            'diaglist': row.get('diaglist', ''),
+            'proclist': row.get('proclist', ''),
             'tarif_inacbg': row['tarif_inacbg'],
             'tarif_rs': row['tarif_rs'],
             'kesimpulan': fd.get('kesimpulan', '-')

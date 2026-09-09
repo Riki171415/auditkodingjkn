@@ -1,0 +1,10 @@
+        add_list_item(num_str, text_str)
+    document.add_page_break()
+
+    # ── BAB II HASIL DESK REVIEW ──────────────────────────────────────────────
+    document.add_heading('BAB II HASIL DESK REVIEW', level=1)
+
+    document.add_heading('A. Gambaran Data', level=2)
+    table_gb = document.add_table(rows=7, cols=2)
+    gb_data = [
+        ['Uraian', 'Jumlah'],

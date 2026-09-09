@@ -1,11 +1,10 @@
-import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { LayoutDashboard, Building2, ClipboardCheck, BriefcaseMedical, FileText } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Hospitals from './pages/Hospitals';
 import DeskReview from './pages/DeskReview';
-import KKRForm from './pages/KKRForm';
+import KKRForm from './pages/KKRDocument';
 import OnSiteList from './pages/OnSiteList';
-import KKROSForm from './pages/KKROSForm';
 import Reports from './pages/Reports';
 
 function Sidebar() {
@@ -64,11 +63,11 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/hospitals" element={<Hospitals />} />
-          <Route path="/desk-review-all" element={<div className="glass-panel fade-in" style={{padding: 24}}><h2>Tahap 3: Pelaksanaan Desk Review</h2><p>Pilih Rumah Sakit di menu Tahap 2 untuk memulai Desk Review kasusnya.</p></div>} />
+          <Route path="/desk-review-all" element={<Navigate to="/hospitals" replace />} />
           <Route path="/desk-review/:kode_rs" element={<DeskReview />} />
           <Route path="/kkr-dr01/:sep" element={<KKRForm />} />
           <Route path="/onsite-audit" element={<OnSiteList />} />
-          <Route path="/kkr-os01/:sep" element={<KKROSForm />} />
+          <Route path="/kkr-os01/:sep" element={<KKRForm kind="OS01" />} />
           <Route path="/laporan" element={<Reports />} />
         </Routes>
       </Layout>

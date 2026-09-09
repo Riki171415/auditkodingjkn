@@ -103,14 +103,21 @@ def generate_dummy_data():
         rs_data['_rules']     = rs_data.apply(lambda r: validate_case(r.to_dict()), axis=1)
         rs_data['_skor']      = rs_data['_rules'].apply(calculate_knavp_score)
 
-        # Ambil 50 kasus pertama secara natural agar hasil LHA benar-benar
-        # mencerminkan output dari logic audit (tanpa rekayasa rasio).
-        target_cases = rs_data.head(50).to_dict('records')
-
+        # Ambil sampel kasus yang sesungguhnya berdasarkan tabel Cochcran RI/RJ
+        # target_cases = rs_data.head(50).to_dict('records') # <-- logika lama
+        
+        from modules.data_loader import get_sampled_cases_by_rs
+        sampled_df = get_sampled_cases_by_rs(kode_rs)
+        target_cases = sampled_df.to_dict('records')
         for case in target_cases:
             sep             = case['sep']
-            triggered_rules = case.get('_rules', [])
-            total_skor      = case.get('_skor', 0) or calculate_knavp_score(triggered_rules)
+            case_row = rs_data[rs_data['sep'] == sep]
+            if not case_row.empty:
+                triggered_rules = case_row.iloc[0]['_rules']
+                total_skor      = int(case_row.iloc[0]['_skor'])
+            else:
+                triggered_rules = []
+                total_skor      = 0
 
             # Dual coding discrepancy
             try:
@@ -175,6 +182,7 @@ def generate_dummy_data():
                 ),
                 'rekomendasi_lanjut':     keputusan,
                 'kategori_perubahan_tarif': ('Tidak Berubah' if len(triggered_rules) == 0 else 'Turun'),
+                'triggered_rules':        triggered_rules,
             }
 
             save_kkr_dr01(sep, data)

@@ -1,0 +1,25 @@
+        rekom_items.append(("●", "klarifikasi kepada PMIK terkait ketepatan penerapan aturan koding (termasuk kombinasi kode, excludes) dan kepatuhan terhadap pedoman ICS;"))
+    if rule_counts.get('medical_evidence', 0) > 0 or rule_counts.get('procedure_validation', 0) > 0:
+        rekom_items.append(("●", "klarifikasi kepada DPJP terkait kelengkapan bukti medis penunjang diagnosis secondary/komplikasi serta validitas tindakan;"))
+    if onsite > 0:
+        rekom_items.append(("●", f"pelaksanaan On-Site Audit terhadap {onsite} kasus prioritas dengan tingkat risiko tinggi dan/atau temuan berulang untuk memverifikasi dokumen rekam medis fisik;"))
+    if sampling > 0:
+        rekom_items.append(("●", f"pelaksanaan Klarifikasi/Sampling terhadap {sampling} kasus dengan risiko sedang untuk memastikan kelengkapan administratif;"))
+        
+    rekom_items.append(("●", "pembinaan pengodean dan peningkatan pemahaman transisi iDRG secara berkala bagi tenaga koding rumah sakit."))
+
+    for num_str, text_str in rekom_items:
+        add_list_item(num_str, text_str)
+    document.add_page_break()
+
+    document.add_page_break()
+    # ── LAMPIRAN ──────────────────────────────────────────────────────────────
+    document.add_heading('LAMPIRAN', level=1)
+
+    document.add_heading('1. Ringkasan KKR-DR01', level=2)
+    table_l1 = document.add_table(rows=1, cols=9)
+    l1_hdrs = ['No', 'Nomor SEP', 'INA-CBG', 'iDRG / CCL', 'Skor KNAVP', 'Tingkat Risiko', 'Discrepancy Diagnosa', 'Discrepancy Prosedur', 'Rekomendasi Reviewer']
+    for i, h in enumerate(l1_hdrs):
+        table_l1.rows[0].cells[i].text = h
+
+    from modules.rule_engine import check_dual_coding_discrepancy

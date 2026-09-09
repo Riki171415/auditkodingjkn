@@ -1,0 +1,62 @@
+LAPORAN AKHIR HASIL REVIEW KODING DAN VERIFIKASI DUAL CODING (DESK REVIEW)
+TRANSISI INA-CBG MENUJU iDRG
+TAHUN 2025 - 2026
+PUSBIKES - PUSAT PEMBIAYAAN KESEHATAN
+KEMENTERIAN KESEHATAN REPUBLIK INDONESIA
+Tanggal Pengesahan : 15 Juni 2026
+Total Sampel Review Nasional : 2001 Kasus dari 40 Rumah Sakit
+BAGIAN I: LAPORAN HASIL DESK REVIEW NASIONAL
+Laporan Hasil Desk Review merupakan laporan operasional yang disusun berdasarkan hasil Validasi Berbasis Aturan Pengodean (Rule-Based Validation) terhadap data klaim pelayanan kesehatan di tingkat nasional. Laporan ini memuat ringkasan pelaksanaan Desk Review, hasil validasi aturan pengodean, analisis pola indikasi ketidaksesuaian, daftar rekomendasi On-Site Audit, dan rekomendasi tindak lanjut.
+1. Ringkasan Pelaksanaan Desk Review Nasional
+
+2. Analisis Pola Indikasi Ketidaksesuaian Pengodean
+Berdasarkan evaluasi otomatis menggunakan 11 kelompok aturan KNAVP dan kaidah klinis (termasuk aturan hemodialisis 39.95 dengan toleransi indikasi penyakit ginjal dan komplikasi N08.3), pola indikasi ketidaksesuaian utama yang ditemukan meliputi gangguan Combination Code, Dagger & Asterisk, serta Procedure Validation tanpa diagnosis pendukung.
+BAGIAN II: LAPORAN HASIL ON-SITE AUDIT NASIONAL
+Laporan Hasil On-Site Audit merupakan laporan operasional yang disusun berdasarkan hasil verifikasi lanjutan terhadap dokumentasi klinis (rekam medis, laporan operasi, hasil laboratorium/penunjang) pada FPKTL yang direkomendasikan On-Site Audit.
+
+BAGIAN III: LAPORAN HASIL AUDIT (LAPORAN AKHIR & PENGESAHAN)
+Laporan Hasil Audit ini adalah Laporan Akhir yang menyatukan hasil Desk Review dan On-Site Audit Koding Nasional tahun 2025-2026 sebagai dasar pengambilan kebijakan pembiayaan kesehatan dan perbaikan kualitas pengodean nasional.
+Pengesahan Laporan Akhir Audit Koding Nasional
+Parameter Evaluasi Nasional
+Hasil Audit / Nilai
+Total Rumah Sakit Sampel
+40 FPKTL
+Total Kasus Divalidasi (Desk Review)
+2,001 SEP
+Kasus Direkomendasikan On-Site Audit
+0 Kasus (0.0%)
+Kasus Direkomendasikan Audit Sampling
+0 Kasus (0.0%)
+Kasus Direkomendasikan Monitoring / Lolos
+2,001 Kasus (100.0%)
+Rata-rata Skor KNAVP Nasional
+0.0 / 100
+Total Perbedaan Dual Coding (INA-CBG vs iDRG)
+0 Perbedaan
+Komponen Verifikasi On-Site Audit
+Standar & Hasil Verifikasi Lapangan
+1. Verifikasi Dokumentasi Klinis
+Pemeriksaan kelengkapan resume medis dan bukti klinis yang mendukung diagnosis utama, diagnosis sekunder, dan tindakan.
+2. Hasil Klarifikasi FPKTL
+Pembahasan temuan bersama tim koder, verifikator internal, dan DPJP rumah sakit terkait.
+3. Verifikasi Pengodean Definitif
+Koreksi dan penetapan kode diagnosis/prosedur final sesuai kaidah ICD-10 dan ICD-9-CM.
+4. Analisis Dampak Grouping & Complexity Level
+Evaluasi pergeseran grup CBG/iDRG dan perubahan tingkat keparahan (Severity Level / CCL).
+5. Analisis Dampak Nominal Klaim
+Penghitungan selisih tarif bersih antara klaim awal dan hasil verifikasi klinis.
+6. Kesimpulan & Rekomendasi On-Site
+Penetapan tindak lanjut perbaikan sistem pengodean di masing-masing FPKTL.
+Disusun oleh
+Direviu oleh
+Keterangan
+
+( Tim Reviewer Koding Pusat Pembiayaan Kesehatan )
+
+( Riki Permana Putra.,SKM )
+NIP. 198611172014021001
+1. Laporan Akhir ini disusun oleh Tim Reviewer Koding Pusat Pembiayaan Kesehatan.
+
+2. Tanda tangan digital Barcode QR memvalidasi pengesahan dokumen per tanggal 15 Juni 2026.
+
+3. Dokumen ini sah dan menjadi acuan evaluasi koding secara nasional.

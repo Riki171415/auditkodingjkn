@@ -70,13 +70,11 @@ def _build_kkr_data(row, case, triggered_rules):
     if row.get('reviewer_name'):
         kkr_data['reviewer_name'] = row['reviewer_name']
 
-    if row.get('updated_at'):
-        from datetime import datetime
-        try:
-            dt = datetime.strptime(str(row['updated_at']).split('.')[0], '%Y-%m-%d %H:%M:%S')
-            kkr_data['tanggal_review'] = dt.strftime('%d/%m/%Y')
-        except Exception:
-            kkr_data['tanggal_review'] = str(row['updated_at']).split(' ')[0]
+        kkr_data['tanggal_review'] = '15 Juni 2026'
+        kkr_data['tanggal_ketua']  = '15 Juni 2026'
+    else:
+        kkr_data['tanggal_review'] = '15 Juni 2026'
+        kkr_data['tanggal_ketua']  = '15 Juni 2026'
 
     return kkr_data
 

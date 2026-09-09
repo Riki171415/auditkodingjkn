@@ -1,0 +1,60 @@
+    # ── BAB II HASIL DESK REVIEW ──────────────────────────────────────────────
+    document.add_heading('BAB II HASIL DESK REVIEW', level=1)
+
+    document.add_heading('A. Gambaran Data', level=2)
+    
+    ss = summary_stats or {}
+    onsite   = ss.get('onsite', sum(1 for c in cases if 'On-Site' in str(c.get('keputusan_sistem', ''))))
+    sampling = ss.get('sampling', sum(1 for c in cases if 'Sampling' in str(c.get('keputusan_sistem', '')) and 'On-Site' not in str(c.get('keputusan_sistem', ''))))
+    monitor  = ss.get('monitoring', len(cases) - onsite - sampling)
+    avg_skor = ss.get('avg_skor_knavp', round(sum(float(c.get('knavp_skor', 0) or 0) for c in cases) / max(len(cases), 1), 1))
+    beda_dc  = ss.get('total_beda_dc', sum(int(c.get('jumlah_beda_dual_coding', 0) or 0) for c in cases))
+    
+    sampel_rj = sum(1 for c in cases if str(c.get('inacbg', '')).endswith('-0'))
+    sampel_ri = len(cases) - sampel_rj
+
+    narasi_gb = (
+        f"Berdasarkan hasil rekapitulasi data klaim {rs_name}, fasilitas kesehatan ini memiliki "
+        f"total populasi sebanyak {total_rs:,} kasus. Dari populasi tersebut, ditarik sampel sebanyak "
+        f"{len(cases)} kasus untuk dilakukan verifikasi melalui Kertas Kerja Review (KKR-DR01). "
+        f"Setelah proses validasi selesai, didapatkan {onsite} kasus yang direkomendasikan untuk "
+    document.add_heading('D. Kasus Prioritas', level=2)
+    table_kp = document.add_table(rows=1, cols=5)
+    kp_hdrs = ['No', 'Nomor SEP', 'Rule / Temuan', 'Prioritas', 'Rekomendasi']
+    for i, h in enumerate(kp_hdrs):
+        table_kp.rows[0].cells[i].text = h
+
+    # Prioritas 1: kasus yang ADA triggered rules, diurutkan skor tertinggi
+    cases_with_rules = sorted(
+        [c for c in cases if c.get('triggered_rules')],
+        key=lambda x: int(x.get('knavp_skor') or 0),
+        reverse=True
+    )
+    # Prioritas 2: kasus dual-coding discrepancy tanpa rule, tingkat Sedang/Tinggi
+    cases_dc_only = [
+        c for c in cases
+        if not c.get('triggered_rules')
+        and int(c.get('jumlah_beda_dual_coding', 0)) > 0
+    ]
+
+    priority_cases = cases_with_rules + cases_dc_only
+    
+    for i, c in enumerate(priority_cases):
+        row_cells = table_kp.add_row().cells
+        row_cells[0].text = str(i + 1)
+        row_cells[1].text = str(c.get('sep', ''))
+        rules = c.get('triggered_rules')
+        if rules and isinstance(rules, list):
+            rule_texts = [f"• [{r.get('rule_id', '')}] {r.get('nama_aturan', '')}" for r in rules]
+            row_cells[2].text = "\n".join(rule_texts)
+        else:
+            row_cells[2].text = "Perbedaan Dual Coding Tinggi"
+        row_cells[3].text = str(c.get('tingkat_risiko', 'Tinggi'))
+        row_cells[4].text = "On-Site Audit / Klarifikasi"
+    format_table(table_kp, font_size_pt=12)
+    add_p("", space_after_pt=12)
+
+    document.add_heading('E. Kesesuaian Input INACBG-iDRG (Discrepancy Koding)', level=2)
+    
+    total_cases = len(cases)
+    mismatch_cases = len([c for c in cases if int(c.get('jumlah_beda_dual_coding', 0)) > 0])

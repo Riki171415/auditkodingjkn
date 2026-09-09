@@ -1,0 +1,10 @@
+
+    document.add_heading('B. Rekomendasi', level=2)
+    add_p("Berdasarkan hasil analisis reviewer atas keseluruhan temuan Desk Review, direkomendasikan langkah-langkah tindak lanjut sebagai berikut:", align=WD_ALIGN_PARAGRAPH.LEFT, size_pt=12, space_after_pt=4)
+    rekom_items = [
+        ("●", "tidak diperlukan tindak lanjut bagi kasus yang lolos validasi tanpa catatan;"),
+        ("●", "klarifikasi kepada PMIK terkait ketepatan penerapan aturan kombinasi kode dan pedoman ICS;"),
+        ("●", "klarifikasi kepada DPJP terkait kelengkapan bukti medis penunjang diagnosis secondary/komplikasi;"),
+        ("●", "pelaksanaan On-Site Audit bagi kasus-kasus prioritas dengan tingkat risiko tinggi dan temuan berulang;"),
+        ("●", "pembinaan pengodean dan peningkatan pemahaman transisi iDRG secara berkala bagi tenaga koding rumah sakit.")
+    ]

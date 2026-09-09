@@ -52,3 +52,20 @@ exports/kkr_data/*.json
 .vscode/
 *.swp
 *.swo
+
+# Local report runtime, confidential snapshots, and QA artifacts
+.report_work/node_modules/
+.report_work/previews/
+.report_work/contact/
+.report_work/render_*/
+.report_work/*.png
+outputs/
+output/pdf/
+tmp/pdfs/
+scratch/test_deps/
+debug_gemini.py
+list_models.py
+scratch/
+.agents/
+.report_work/
+tmp/

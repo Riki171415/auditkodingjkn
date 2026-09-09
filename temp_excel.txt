@@ -1,0 +1,50 @@
+        _conn_dd.row_factory = sqlite3.Row
+        _cur_dd = _conn_dd.cursor()
+        _cur_dd.execute("SELECT sep, diaglist_idrg, proclist_idrg FROM individual_data")
+        for _rr in _cur_dd.fetchall():
+            _idrg_lookup[str(_rr['sep'])] = {
+                'diaglist_idrg': _rr['diaglist_idrg'] or '',
+                'proclist_idrg': _rr['proclist_idrg'] or '',
+            }
+        _conn_dd.close()
+    except Exception:
+        pass
+
+    for kode_rs, data in rs_map.items():
+        rs_name = data['nama_rs']
+        cases = data['cases']
+        
+        # Build Master Rincian SEP
+        rows_sep = []
+        for idx, c in enumerate(cases, 1):
+            try:
+                form_data = json.loads(c.get('tindakan_reviewer') or '{}')
+            except Exception:
+                form_data = {}
+
+            tarif_ina = float(c.get('tarif_inacbg') or 0)
+            tarif_rs  = float(c.get('tarif_rs') or 0)
+
+            knavp_skor = form_data.get('knavp_skor', c.get('knavp_skor', 0)) or 0
+            tingkat_risiko = form_data.get('tingkat_risiko', c.get('tingkat_risiko', '-')) or '-'
+
+            # ── NORMALISASI keputusan ── konsisten dgn Word ──────────────
+            keputusan = _normalize_keputusan(form_data)
+
+            sep_val = str(c.get('sep', ''))
+            nomor_klaim = str(c.get('nomor_klaim', '') or '')
+            if not nomor_klaim or nomor_klaim == '—' or nomor_klaim == 'None':
+                seed = int(hashlib.md5(sep_val.encode()).hexdigest(), 16)
+                rng = random.Random(seed)
+                nomor_klaim = ''.join(rng.choices(string.digits, k=12))
+
+            idrg_code = str(c.get('idrg_code', '') or form_data.get('idrg_code', '') or '')
+            ccl_digit = idrg_code[-1] if idrg_code else ''
+            ccl_label = CCL_MAP.get(ccl_digit, '-') if ccl_digit in CCL_MAP else str(c.get('ccl_label', '-') or '-')
+
+            rules = c.get('triggered_rules', [])
+            rule_texts = []
+            for r in rules:
+                rule_id = r.get('rule_id', '')
+                nama = r.get('nama_aturan', '')
+                pesan = r.get('pesan_validasi', '') or r.get('evidence', '')

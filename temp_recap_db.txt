@@ -1,0 +1,40 @@
+def _set_row(ws, row_num, row_data, fill=None, bold=False, num_fmt=None):
+    for col, val in enumerate(row_data, 1):
+        cell = ws.cell(row=row_num, column=col, value=val)
+        cell.border = border
+        cell.alignment = Alignment(vertical='center', wrap_text=True)
+        cell.font = Font(bold=bold, size=8)
+        if fill:
+            cell.fill = fill
+        if num_fmt and isinstance(val, (int, float)):
+            cell.number_format = num_fmt
+
+
+def _auto_width(ws, max_width=55):
+    for col in ws.columns:
+        max_len = max((len(str(cell.value or '')) for cell in col), default=0)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, max_width)
+
+
+def generate_recap_excel():
+    print("=" * 60)
+    print("Generating Laporan Akhir Desk Review (Excel)...")
+    print("=" * 60)
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    dr_data = get_recap_desk_review()
+    print(f"Ditemukan {len(dr_data)} record Desk Review.")
+
+    if not dr_data:
+        print("Data kosong.")
+        return None
+
+    # ── Parse semua baris ────────────────────────────────────────────────────
+    master_data = []
+    for row in dr_data:
+        try:
+            form_data = json.loads(row.get('tindakan_reviewer') or '{}')
+        except Exception:
+            form_data = {}
+

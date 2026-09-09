@@ -1,0 +1,40 @@
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan pengkodean diagnosis yang secara eksplisit sudah termasuk (Includes) atau "
+                "dikecualikan (Excludes) dalam kode lain, sehingga tidak seharusnya dikode secara bersamaan. "
+                "Diperlukan penelusuran kaidah Includes/Excludes dalam ICD-10 dan ICS V7.",
+            'underlying_manifestation':
+                f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan kode manifestasi yang digunakan tanpa underlying cause yang tepat, "
+                "atau underlying cause yang tidak sesuai pasangan manifestasinya. "
+                "Kondisi ini berpotensi mempengaruhi akurasi grouping dan tingkat keparahan (CCL/PCCL).",
+            'procedure_validation':
+                f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan adanya tindakan/prosedur medis yang dikodekan tanpa didukung diagnosis indikasi "
+                "yang sesuai, atau sebaliknya. Diperlukan verifikasi laporan operasi dan bukti klinis "
+                "untuk memastikan kesesuaian kode prosedur dengan kondisi pasien yang sebenarnya.",
+            'unbundling':
+                f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan pemecahan (unbundling) paket tindakan yang seharusnya sudah tercakup dalam satu "
+                "kode prosedur utama, sehingga diklaim sebagai tindakan terpisah. "
+                "Diperlukan verifikasi terhadap rekam medis dan laporan tindakan untuk memastikan "
+                "tidak terjadi double-billing atas komponen tindakan yang sudah termasuk dalam paket.",
+            'medical_evidence':
+                f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan kode diagnosis berbobot tinggi (komplikasi/komorbiditas) yang diklaim "
+                "tanpa didukung bukti klinis/laboratorium yang memadai dalam rekam medis. "
+                "Diperlukan On-Site Audit untuk memverifikasi kelengkapan dokumentasi klinis.",
+            'administrative_validation':
+                f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini berupa ketidaksesuaian antara kode diagnosis dengan data administratif pasien "
+                "(jenis kelamin atau kelompok umur). Diperlukan klarifikasi identitas pasien dan "
+                "kesesuaian pengkodean dengan data rekam medis yang tersedia.",
+            'age_validation':
+                f"Berdasarkan hasil validasi KNAVP terhadap {len(cases)} kasus yang direviu pada {rs_name}, secara keseluruhan terdapat {total_temuan_all} temuan pelanggaran aturan. "
+                f"Dari seluruh pelanggaran tersebut, kelompok temuan paling dominan adalah {dom_label} sebanyak {dom_count} temuan. "
+                "Temuan ini mengindikasikan penggunaan kode diagnosis yang tidak sesuai dengan kelompok umur pasien. "
+                "Diperlukan verifikasi tanggal lahir pasien dan kesesuaian kode dengan kelompok usia yang tepat.",

@@ -1,0 +1,100 @@
+def generate_lha_word(kode_rs, rs_name, cases, output_path, summary_stats=None):
+    """
+    Generate Laporan Hasil Audit (LHA) in Word format.
+    summary_stats (optional dict): {
+        total_kasus, onsite, sampling, monitoring,
+        avg_skor_knavp, total_beda_dc
+    }
+    """
+    document = Document()
+
+    # ── Title ─────────────────────────────────────────────────────────────────
+    heading = document.add_heading('LAPORAN HASIL AUDIT (LHA) KODING JKN', 0)
+    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub = document.add_paragraph('Transisi INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG)')
+    sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub.runs[0].italic = True
+
+    document.add_paragraph(f"Nama Rumah Sakit : {rs_name}")
+    document.add_paragraph(f"Kode RS          : {kode_rs}")
+    document.add_paragraph(f"Jumlah Sampel Audit: {len(cases)} Kasus")
+    from datetime import datetime
+    document.add_paragraph(f"Tanggal Generate   : {datetime.now().strftime('%d/%m/%Y %H:%M')} WIB")
+
+
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) as total, SUM(CASE WHEN inacbg LIKE '%-0' THEN 1 ELSE 0 END) as rj, SUM(CASE WHEN inacbg NOT LIKE '%-0' THEN 1 ELSE 0 END) as ri FROM datadb.individual_data WHERE kode_rs = ?", (kode_rs,))
+    rs_stats = cursor.fetchone()
+    total_rs = rs_stats['total']
+    rj_rs = rs_stats['rj'] or 0
+    ri_rs = rs_stats['ri'] or 0
+    
+    table1 = document.add_table(rows=5, cols=2)
+    table1.style = 'Table Grid'
+    
+    t1_cells = table1.columns[0].cells
+    t1_cells[0].text = 'Uraian'
+    t1_cells[1].text = 'Total Kasus'
+    t1_cells[2].text = 'Rawat Jalan'
+    t1_cells[3].text = 'Rawat Inap'
+    t1_cells[4].text = 'Total Kasus Direview'
+    
+    v1_cells = table1.columns[1].cells
+    v1_cells[0].text = 'Jumlah'
+    v1_cells[1].text = str(total_rs)
+    v1_cells[2].text = str(rj_rs)
+    v1_cells[3].text = str(ri_rs)
+    v1_cells[4].text = str(len(cases))
+    
+    # ── Ringkasan KNAVP v2 ────────────────────────────────────────────────────
+    document.add_heading('1-A. Ringkasan Analisis KNAVP (Otomatis)', level=1)
+
+    ss = summary_stats or {}
+    total_sample = ss.get('total_kasus', len(cases))
+    onsite   = ss.get('onsite', sum(1 for c in cases if 'On-Site' in str(c.get('keputusan_sistem', ''))))
+    sampling = ss.get('sampling', sum(1 for c in cases if 'Sampling' in str(c.get('keputusan_sistem', '')) and 'On-Site' not in str(c.get('keputusan_sistem', ''))))
+    monitor  = ss.get('monitoring', total_sample - onsite - sampling)
+    avg_skor = ss.get('avg_skor_knavp', round(sum(float(c.get('knavp_skor', 0) or 0) for c in cases) / max(len(cases), 1), 1))
+    beda_dc  = ss.get('total_beda_dc', sum(int(c.get('jumlah_beda_dual_coding', 0) or 0) for c in cases))
+
+    knavp_tbl = document.add_table(rows=8, cols=2)
+    knavp_tbl.style = 'Table Grid'
+    knavp_rows = [
+        ['Parameter KNAVP', 'Nilai'],
+        ['Total Kasus Divalidasi', str(total_sample)],
+        ['Rekomendasi On-Site Audit', str(onsite)],
+        ['Rekomendasi Audit Sampling', str(sampling)],
+        ['Rekomendasi Monitoring', str(monitor)],
+        ['Rata-rata Skor KNAVP', str(avg_skor)],
+        ['Total Perbedaan Dual Coding (INA-CBG vs iDRG)', str(beda_dc)],
+        ['Metode Matching Dual Coding', 'Exact / Prefix / Modifier (+X)'],
+    ]
+    for i, (label, val) in enumerate(knavp_rows):
+        cells = knavp_tbl.rows[i].cells
+        cells[0].text = label
+        cells[1].text = val
+        if i == 0:
+            for cell in cells:
+                for para in cell.paragraphs:
+                    for run in para.runs:
+                        run.bold = True
+
+    document.add_heading('1-B. Ringkasan Kasus', level=1)
+
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT COUNT(*) as total, "
+        "SUM(CASE WHEN inacbg LIKE '%-0' THEN 1 ELSE 0 END) as rj, "
+        "SUM(CASE WHEN inacbg NOT LIKE '%-0' THEN 1 ELSE 0 END) as ri "
+        "FROM datadb.individual_data WHERE kode_rs = ?",
+        (kode_rs,)
+    )
+    rs_stats = cursor.fetchone()
+    total_rs = rs_stats['total']
+    rj_rs = rs_stats['rj'] or 0
+    ri_rs = rs_stats['ri'] or 0
+
+    table1 = document.add_table(rows=5, cols=2)
+    table1.style = 'Table Grid'

@@ -1,0 +1,22 @@
+    ]
+    for b in l4_bullets:
+        add_list_item("●", b)
+        
+    add_p("Distribusi Status & Rekomendasi Kasus:", bold=True, space_after_pt=4)
+    samp_rate = (sampling / len(cases) * 100) if cases else 0
+    dist_bullets = [
+        f"Monitoring (Lolos / Risiko Rendah): {monitor} Kasus ({round(compliance_rate,1)}%)",
+        f"Sampling / Klarifikasi (Risiko Sedang): {sampling} Kasus ({round(samp_rate,1)}%)",
+        f"On-Site Audit (Risiko Tinggi ≥ 4.0): {onsite} Kasus ({round(outlier_rate,1)}%)",
+        f"TOTAL KASUS SAMPEL: {len(cases)} Kasus (100%)"
+    ]
+    for b in dist_bullets:
+        add_list_item("●", b)
+    add_p("", space_after_pt=12)
+    
+    else:
+        add_p("Tidak ada perbedaan (discrepancy) kode klinis antara INA-CBG dan iDRG pada kasus sampel ini.", size_pt=10)
+    add_p("", space_after_pt=12)
+
+    document.save(output_path)
+    return output_path

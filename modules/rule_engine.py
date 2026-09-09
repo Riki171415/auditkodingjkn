@@ -62,6 +62,12 @@ def evaluate_rule(rule, diag_codes, proc_codes, case_data=None):
     Evaluate a single rule against diagnosis and procedure codes.
     Returns (triggered: bool, evidence: str)
     """
+    if rule.get('catalog_version'):
+        from modules.knavp_catalog import assess_rule
+        case = dict(case_data or {})
+        case.setdefault('diaglist', ';'.join(diag_codes))
+        result = assess_rule(rule, case)
+        return result['status'] == 'triggered', result['evidence']
     cond = rule['condition']
     cond_type = cond['type']
     
@@ -193,6 +199,8 @@ def validate_case(case_data):
     Returns list of triggered rules with details, including bobot and kelompok_rule.
     """
     rules = load_rules()
+    if rules and rules[0].get('catalog_version'):
+        return [r for r in assess_case(case_data) if r['status'] == 'triggered']
     
     diaglist = case_data.get('diaglist', '') or ''
     proclist = case_data.get('proclist', '') or ''
@@ -217,10 +225,17 @@ def validate_case(case_data):
                 'ptd': rule['ptd'],
                 'pesan_validasi': rule['pesan_validasi'],
                 'rekomendasi_reviewer': rule['rekomendasi_reviewer'],
-                'evidence': evidence
+                'evidence': evidence,
+                'sumber_referensi': rule.get('sumber_referensi', '')
             })
     
     return triggered
+
+
+def assess_case(case_data):
+    """Return every rule's status, including missing inputs and reviewer evidence."""
+    from modules.knavp_catalog import assess_catalog
+    return assess_catalog(load_rules(), case_data)
 
 
 def _get_default_bobot(severity):
@@ -260,6 +275,7 @@ def get_validation_summary(triggered_rules):
         'administrative_validation': 'Administrative Validation',
         'age_validation': 'Age Validation',
         'los_validation': 'Length of Stay Validation'
+        ,'age_los_validation': 'Age dan Length of Stay Validation'
     }
     
     summary = {cat: 0 for cat in categories}
@@ -281,8 +297,8 @@ def get_validation_summary(triggered_rules):
 # (Dikloning dari SAK-iDRG analyze_new.py, diperluas)
 # ============================================================
 
-# Kode non-klinis / admin yang diabaikan dari perbandingan
-DIAG_EXCLUSIONS = {'KG', 'HL', 'NL', 'KND', 'G89', 'U82', 'U83', 'U84'}
+# Kode non-klinis / admin yang diabaikan dari perbandingan (misal KND, HL, DH, KG, NL, G89, U82-U84)
+DIAG_EXCLUSIONS = {'KG', 'HL', 'NL', 'KND', 'DH', 'G89', 'U82', 'U83', 'U84', 'Z00'}
 PROC_EXCLUSIONS = {'99.290'}
 
 
@@ -433,40 +449,20 @@ def check_dual_coding_discrepancy(case_data):
 # ============================================================
 
 def calculate_knavp_score(triggered_rules):
-    """Sum of bobot for all triggered rules = Total Skor KNAVP"""
-    return sum(r.get('bobot', _get_default_bobot(r.get('severity', 'Low'))) for r in triggered_rules)
+    """Lampiran V defines severity, but no numerical weights or aggregate score."""
+    return None
 
 
 def determine_recommendation_knavp(total_skor, jumlah_beda_dual_coding=0):
-    """
-    Determine system recommendation based on KNAVP total score.
-    Threshold (from gauge in form image):
-      0        -> Tidak perlu tindak lanjut
-      1-3      -> Rendah  -> Monitoring
-      4-7      -> Sedang  -> Audit Sampling
-      >= 8     -> Tinggi  -> Direkomendasikan On-Site Audit
-    Dual coding differences also influence: each difference adds weight.
-    """
-    effective_skor = total_skor + (jumlah_beda_dual_coding * 1)  # each dual coding diff = +1
-
-    if effective_skor == 0:
-        tingkat = 'Rendah'
-        keputusan = 'Tidak perlu tindak lanjut'
-    elif effective_skor <= 3:
-        tingkat = 'Rendah'
-        keputusan = 'Monitoring (Tidak perlu tindak lanjut)'
-    elif effective_skor <= 7:
-        tingkat = 'Sedang'
-        keputusan = 'Audit Sampling'
-    else:
-        tingkat = 'Tinggi'
-        keputusan = 'Direkomendasikan On-Site Audit'
-
+    """Do not infer numerical triage thresholds absent from Lampiran V."""
     return {
-        'total_skor': total_skor,
-        'effective_skor': effective_skor,
-        'tingkat_risiko': tingkat,
-        'keputusan_sistem': keputusan,
+        'total_skor': None,
+        'effective_skor': None,
+        'scoring_defined': False,
+        'catalog_version': 'knavp-lampiran-v-20260907',
+        'tingkat_risiko': 'Belum ditetapkan',
+        'keputusan_sistem': 'Memerlukan penilaian reviewer',
+        'catatan': 'Lampiran V tidak menetapkan bobot numerik, ambang skor, atau tambahan skor dual coding.',
     }
 
 
@@ -477,6 +473,11 @@ def validate_batch_by_rs(df_rs):
         case = row.to_dict()
         triggered = validate_case(case)
         
+        total_skor = calculate_knavp_score(triggered)
+        knavp_res = determine_recommendation_knavp(total_skor, case.get('jumlah_beda_dual_coding', 0))
+        tingkat_risiko = knavp_res['tingkat_risiko']
+        rekomendasi = knavp_res['keputusan_sistem']
+        
         results.append({
             'sep': case.get('sep', ''),
             'inacbg': case.get('inacbg', ''),
@@ -485,7 +486,12 @@ def validate_batch_by_rs(df_rs):
             'has_high': any(r['severity'] == 'High' for r in triggered),
             'has_medium': any(r['severity'] == 'Medium' for r in triggered),
             'triggered_rules': triggered,
-            'rekomendasi': determine_recommendation(triggered),
+            'rule_assessments': assess_case(case),
+            'catalog_version': 'knavp-lampiran-v-20260907',
+            'scoring_defined': False,
+            'rekomendasi': rekomendasi,
+            'tingkat_risiko': tingkat_risiko,
+            'knavp_skor': total_skor,
             'tarif_inacbg': case.get('tarif_inacbg', 0),
             'tarif_rs': case.get('tarif_rs', 0),
             'alos': case.get('alos', 0),

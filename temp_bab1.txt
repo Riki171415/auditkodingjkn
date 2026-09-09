@@ -1,0 +1,130 @@
+
+    document.add_heading('A. Latar Belakang', level=2)
+    add_p(
+        "Dalam masa transisi sistem penjaminan dari INA-CBG menuju Indonesian Diagnosis Related Groups (iDRG), keakuratan pengodean diagnosis dan prosedur oleh perekam medis dan informasi kesehatan (PMIK) menjadi pilar utama pengelolaan pembiayaan kesehatan. Untuk memastikan kualitas data klaim serta mencegah ketidaksesuaian pengodean, dilakukan verifikasi tahap awal melalui metode Desk Review.",
+        align=WD_ALIGN_PARAGRAPH.JUSTIFY, size_pt=12, space_after_pt=8
+    )
+
+    document.add_heading('B. Dasar Pelaksanaan', level=2)
+    dasar_items = [
+        ("1.", "Undang-Undang Republik Indonesia Nomor 17 Tahun 2023 tentang Kesehatan."),
+        ("2.", "Peraturan Presiden Nomor 82 Tahun 2018 tentang Jaminan Kesehatan beserta perubahannya."),
+        ("3.", "Peraturan Menteri Kesehatan Republik Indonesia tentang Pedoman Audit Coding dan Verifikasi Dual Coding Pelayanan Kesehatan."),
+        ("4.", "World Health Organization (WHO). International Statistical Classification of Diseases and Related Health Problems 10th Revision (ICD-10). Geneva: World Health Organization."),
+        ("5.", "National Center for Health Statistics (NCHS). International Classification of Diseases, 9th Revision, Clinical Modification (ICD-9-CM)."),
+        ("6.", "Kementerian Kesehatan Republik Indonesia. Indonesian Coding Standard (ICS) dan Ketentuan Teknis Pengodean Klaim Jaminan Kesehatan Nasional."),
+        ("7.", "Pusat Pembiayaan Kesehatan Kementerian Kesehatan RI. Katalog Nasional Aturan Validasi Pengodean (KNAVP) Edisi Terkini."),
+        ("8.", "Ketentuan Teknis Sistem Grouping INA-CBG dan iDRG (Indonesian Diagnosis Related Groups).")
+    ]
+    for num_str, text_str in dasar_items:
+        add_list_item(num_str, text_str)
+
+    document.add_heading('C. Tujuan', level=2)
+    add_p("Desk Review bertujuan untuk:", align=WD_ALIGN_PARAGRAPH.LEFT, size_pt=12, space_after_pt=4)
+    tujuan_items = [
+        ("a.", "mengevaluasi kesesuaian pengodean diagnosis dan prosedur berdasarkan data klaim;"),
+        ("b.", "mengidentifikasi indikasi ketidaksesuaian pengodean menggunakan Rule-Based Coding Validation;"),
+        ("c.", "mengidentifikasi kasus yang memerlukan tindak lanjut berupa klarifikasi atau On-Site Audit; dan"),
+        ("d.", "memberikan rekomendasi perbaikan pengodean berdasarkan hasil analisis reviewer.")
+    ]
+    for num_str, text_str in tujuan_items:
+        add_list_item(num_str, text_str)
+
+    # Fetch total stats — menggunakan tabel master data Cochran sesuai referensi resmi
+    COCHRAN_MASTER = {
+        '3573011': {'total_ri': 38128, 'sample_ri': 60, 'total_rj': 287556, 'sample_rj': 60},
+        '3173025': {'total_ri': 32421, 'sample_ri': 60, 'total_rj': 470647, 'sample_rj': 60},
+        '1371464': {'total_ri': 6489,  'sample_ri': 60, 'total_rj': 62529,  'sample_rj': 60},
+        '3273015': {'total_ri': 51065, 'sample_ri': 60, 'total_rj': 362347, 'sample_rj': 60},
+        '3374010': {'total_ri': 51848, 'sample_ri': 60, 'total_rj': 470691, 'sample_rj': 60},
+        '1371010': {'total_ri': 37588, 'sample_ri': 60, 'total_rj': 275776, 'sample_rj': 60},
+        '3372015': {'total_ri': 56546, 'sample_ri': 60, 'total_rj': 415528, 'sample_rj': 60},
+        '1671013': {'total_ri': 44463, 'sample_ri': 60, 'total_rj': 302932, 'sample_rj': 60},
+        '7371325': {'total_ri': 35885, 'sample_ri': 60, 'total_rj': 290209, 'sample_rj': 60},
+        '1275655': {'total_ri': 31146, 'sample_ri': 60, 'total_rj': 253319, 'sample_rj': 60},
+        '7171013': {'total_ri': 31462, 'sample_ri': 60, 'total_rj': 277498, 'sample_rj': 60},
+        '5271010': {'total_ri': 32537, 'sample_ri': 60, 'total_rj': 204887, 'sample_rj': 60},
+        '3603010': {'total_ri': 17844, 'sample_ri': 60, 'total_rj': 203713, 'sample_rj': 60},
+        '3173521': {'total_ri': 19656, 'sample_ri': 60, 'total_rj': 194073, 'sample_rj': 60},
+        '1471011': {'total_ri': 21099, 'sample_ri': 60, 'total_rj': 123535, 'sample_rj': 60},
+        '3578016': {'total_ri': 51808, 'sample_ri': 60, 'total_rj': 498146, 'sample_rj': 60},
+        '3404015': {'total_ri': 51988, 'sample_ri': 60, 'total_rj': 657288, 'sample_rj': 60},
+        '3310015': {'total_ri': 24930, 'sample_ri': 60, 'total_rj': 161349, 'sample_rj': 60},
+        '3171012': {'total_ri': 34308, 'sample_ri': 60, 'total_rj': 345731, 'sample_rj': 60},
+        '3172013': {'total_ri': 25620, 'sample_ri': 60, 'total_rj': 277172, 'sample_rj': 60},
+        '5171016': {'total_ri': 43243, 'sample_ri': 60, 'total_rj': 404030, 'sample_rj': 60},
+        '3578811': {'total_ri': 1011,  'sample_ri': 57, 'total_rj': 2241,   'sample_rj': 59},
+        '1471226': {'total_ri': 23280, 'sample_ri': 60, 'total_rj': 255945, 'sample_rj': 60},
+        '1471067': {'total_ri': 4927,  'sample_ri': 60, 'total_rj': 60694,  'sample_rj': 60},
+        '3603115': {'total_ri': 1107,  'sample_ri': 57, 'total_rj': 26882,  'sample_rj': 60},
+        '3172495': {'total_ri': 1901,  'sample_ri': 59, 'total_rj': 65475,  'sample_rj': 60},
+        '3671065': {'total_ri': 4734,  'sample_ri': 60, 'total_rj': 76017,  'sample_rj': 60},
+        '3577099': {'total_ri': 1420,  'sample_ri': 58, 'total_rj': 8475,   'sample_rj': 60},
+        '3671080': {'total_ri': 4336,  'sample_ri': 60, 'total_rj': 55613,  'sample_rj': 60},
+        '3471052': {'total_ri': 8780,  'sample_ri': 60, 'total_rj': 127441, 'sample_rj': 60},
+        '3578086': {'total_ri': 6667,  'sample_ri': 60, 'total_rj': 190324, 'sample_rj': 60},
+        '3471041': {'total_ri': 7485,  'sample_ri': 60, 'total_rj': 101345, 'sample_rj': 60},
+        '3275392': {'total_ri': 9522,  'sample_ri': 60, 'total_rj': 133245, 'sample_rj': 60},
+        '3671203': {'total_ri': 11078, 'sample_ri': 60, 'total_rj': 174720, 'sample_rj': 60},
+        '3276017': {'total_ri': 12153, 'sample_ri': 60, 'total_rj': 149658, 'sample_rj': 60},
+        '3201230': {'total_ri': 14757, 'sample_ri': 60, 'total_rj': 188543, 'sample_rj': 60},
+        '5103035': {'total_ri': 2773,  'sample_ri': 59, 'total_rj': 56328,  'sample_rj': 60},
+        '3578443': {'total_ri': 3263,  'sample_ri': 59, 'total_rj': 63141,  'sample_rj': 60},
+        '3671054': {'total_ri': 11775, 'sample_ri': 60, 'total_rj': 238034, 'sample_rj': 60},
+        '3374076': {'total_ri': 17430, 'sample_ri': 60, 'total_rj': 122987, 'sample_rj': 60},
+        '3374043': {'total_ri': 4838,  'sample_ri': 60, 'total_rj': 69678,  'sample_rj': 60},
+        '3275115': {'total_ri': 23895, 'sample_ri': 60, 'total_rj': 283538, 'sample_rj': 60},
+        '3273486': {'total_ri': 28468, 'sample_ri': 60, 'total_rj': 262808, 'sample_rj': 60},
+        '3404189': {'total_ri': 21837, 'sample_ri': 60, 'total_rj': 320729, 'sample_rj': 60},
+    }
+
+    conn = get_audit_db()
+    cursor = conn.cursor()
+    _cochran = COCHRAN_MASTER.get(kode_rs)
+    if _cochran:
+        total_ri = _cochran['total_ri']
+        total_rj = _cochran['total_rj']
+        sample_cochran_ri = _cochran['sample_ri']
+        sample_cochran_rj = _cochran['sample_rj']
+        total_rs = total_ri + total_rj
+        rj_rs = total_rj
+        ri_rs = total_ri
+    else:
+        # Fallback: ambil dari DB
+        cursor.execute("SELECT COUNT(*) as total, SUM(CASE WHEN inacbg LIKE '%-0' THEN 1 ELSE 0 END) as rj, SUM(CASE WHEN inacbg NOT LIKE '%-0' THEN 1 ELSE 0 END) as ri FROM datadb.individual_data WHERE kode_rs = ?", (kode_rs,))
+        rs_stats = cursor.fetchone()
+        total_rs = rs_stats['total']
+        rj_rs = rs_stats['rj'] or 0
+        ri_rs = rs_stats['ri'] or 0
+        sample_cochran_ri = len([c for c in cases if c.get('inacbg', '') and not str(c.get('inacbg','')).endswith('-0')])
+        sample_cochran_rj = len([c for c in cases if str(c.get('inacbg','')).endswith('-0')])
+
+    document.add_heading('D. Ruang Lingkup', level=2)
+    add_p(
+        f"Ruang lingkup pelaksanaan Desk Review pada {rs_name} (Kode RS: {kode_rs}) mencakup data klaim pelayanan "
+        f"kesehatan periode Januari - Desember 2025. Total kasus klaim keseluruhan adalah {ri_rs:,} kasus Rawat Inap "
+        f"dan {rj_rs:,} kasus Rawat Jalan, dengan sampel Cochran yang direviu sebanyak {sample_cochran_ri} kasus Rawat Inap "
+        f"dan {sample_cochran_rj} kasus Rawat Jalan (total sampel: {sample_cochran_ri + sample_cochran_rj} kasus).",
+        align=WD_ALIGN_PARAGRAPH.JUSTIFY, size_pt=12, space_after_pt=8
+    )
+
+    document.add_heading('E. Metode', level=2)
+    add_p("Desk Review dilaksanakan melalui tahapan:", align=WD_ALIGN_PARAGRAPH.LEFT, size_pt=12, space_after_pt=4)
+    metode_items = [
+        ("1.", "ekstraksi data klaim;"),
+        ("2.", "penerapan aturan validasi KNAVP;"),
+        ("3.", "analisis hasil validasi oleh reviewer;"),
+        ("4.", "dokumentasi hasil pada KKR-DR01; dan"),
+        ("5.", "penyusunan rekomendasi tindak lanjut.")
+    ]
+    for num_str, text_str in metode_items:
+        add_list_item(num_str, text_str)
+    document.add_page_break()
+
+    # ── BAB II HASIL DESK REVIEW ──────────────────────────────────────────────
+    document.add_heading('BAB II HASIL DESK REVIEW', level=1)
+
+    document.add_heading('A. Gambaran Data', level=2)
+    table_gb = document.add_table(rows=7, cols=2)
+    gb_data = [
+        ['Uraian', 'Jumlah'],

@@ -15,6 +15,41 @@ from modules.export_generator import generate_lha_word
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'exports', 'word_reports')
 
 
+# ── Helper normalisasi keputusan — IDENTIK dengan Excel ──────────────────────
+def _normalize_keputusan(form_data):
+    """
+    Normalisasi nilai keputusan_sistem agar konsisten antara Word dan Excel.
+    Nilai keputusan_sistem yang valid:
+      - 'Direkomendasikan On-Site Audit'
+      - 'Audit Sampling'
+      - 'Monitoring (Tidak perlu tindak lanjut)' / 'Tidak perlu tindak lanjut'
+    """
+    kep_sis = form_data.get('keputusan_sistem', '')
+    kep     = form_data.get('keputusan', '')
+
+    if kep_sis and kep_sis not in ('', '-', None):
+        return str(kep_sis)
+
+    kep_str = str(kep or '')
+    if 'Fraud' in kep_str or 'Tidak Sesuai' in kep_str:
+        return 'Direkomendasikan On-Site Audit'
+    if 'Sesuai' in kep_str or 'Valid' in kep_str:
+        return 'Monitoring (Tidak perlu tindak lanjut)'
+    return kep_sis or kep_str or '-'
+
+
+def _is_onsite(keputusan_str):
+    """Cek apakah rekomendasi adalah On-Site Audit (konsisten dengan Excel)."""
+    return 'On-Site' in str(keputusan_str) or 'Direkomendasikan On-Site' in str(keputusan_str)
+
+
+def _is_sampling(keputusan_str):
+    """Cek apakah rekomendasi adalah Sampling/Klarifikasi (konsisten dengan Excel)."""
+    s = str(keputusan_str)
+    return ('Sampling' in s or 'Klarifikasi' in s) and 'On-Site' not in s
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 def _enrich_row(row):
     """Add parsed KNAVP v2 fields to a DR row from form_data JSON."""
     try:
@@ -24,8 +59,9 @@ def _enrich_row(row):
 
     row['knavp_skor']             = fd.get('knavp_skor',             row.get('knavp_skor', 0))
     row['tingkat_risiko']         = fd.get('tingkat_risiko',         row.get('tingkat_risiko', '-'))
-    row['keputusan_sistem']       = (fd.get('keputusan_sistem') or fd.get('keputusan') or
-                                     row.get('keputusan_sistem') or '-')
+    # ── Gunakan normalisasi terpusat ──────────────────────────────────────────
+    row['keputusan_sistem']       = _normalize_keputusan(fd)
+    # ─────────────────────────────────────────────────────────────────────────
     row['jumlah_beda_dual_coding']= fd.get('jumlah_beda_dual_coding', row.get('jumlah_beda_dual_coding', 0))
     row['ccl_label']              = fd.get('ccl_label', row.get('ccl_label', '-'))
     row['alasan_keputusan']       = fd.get('alasan_keputusan', fd.get('analisis_reviewer', '-'))
@@ -59,10 +95,10 @@ def bulk_generate_word_reports():
         rs_name = data['nama_rs']
         cases   = data['cases']
 
-        # Hitung statistik ringkasan untuk dimasukkan ke Word header
+        # ── Hitung statistik ringkasan — gunakan helper yg sama dengan Excel ──
         total      = len(cases)
-        onsite     = sum(1 for c in cases if 'On-Site' in str(c.get('keputusan_sistem', '')))
-        sampling   = sum(1 for c in cases if 'Sampling' in str(c.get('keputusan_sistem', '')) and 'On-Site' not in str(c.get('keputusan_sistem', '')))
+        onsite     = sum(1 for c in cases if _is_onsite(c.get('keputusan_sistem', '')))
+        sampling   = sum(1 for c in cases if _is_sampling(c.get('keputusan_sistem', '')))
         monitor    = total - onsite - sampling
         avg_skor   = round(sum(float(c.get('knavp_skor', 0) or 0) for c in cases) / max(total, 1), 1)
         beda_dc    = sum(int(c.get('jumlah_beda_dual_coding', 0) or 0) for c in cases)

@@ -1,0 +1,60 @@
+    add_p(
+        f"Ruang lingkup pelaksanaan Desk Review pada {rs_name} (Kode RS: {kode_rs}) mencakup data klaim pelayanan "
+        f"kesehatan periode Januari - Desember 2025. Total kasus klaim keseluruhan adalah {ri_rs:,} kasus Rawat Inap "
+        f"dan {rj_rs:,} kasus Rawat Jalan, dengan sampel Cochran yang direviu sebanyak {sample_cochran_ri} kasus Rawat Inap "
+        f"dan {sample_cochran_rj} kasus Rawat Jalan (total sampel: {sample_cochran_ri + sample_cochran_rj} kasus).",
+        align=WD_ALIGN_PARAGRAPH.JUSTIFY, size_pt=12, space_after_pt=8
+    )
+
+    document.add_heading('E. Metode', level=2)
+    add_p("Pelaksanaan Desk Review dilakukan secara sistematis dan terstruktur yang dimulai dari ekstraksi data klaim hingga penyusunan rekomendasi tindak lanjut. Proses ini mencakup penerapan aturan validasi dari Katalog Nasional Aturan Validasi Pengodean (KNAVP), dilanjutkan dengan analisis mendalam terhadap hasil validasi oleh tim reviewer. Seluruh hasil temuan kemudian didokumentasikan ke dalam Kertas Kerja Review (KKR-DR01) sebagai dasar utama dalam penyusunan rekomendasi tindak lanjut bagi fasilitas kesehatan. Alur kerja tersebut dapat dilihat pada bagan berikut:", align=3, size_pt=12, space_after_pt=12)
+    try:
+        from docx.shared import Inches
+        document.add_picture('assets/bagan_metode.png', width=Inches(6.0))
+        last_paragraph = document.paragraphs[-1]
+        last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        add_p("", space_after_pt=12)
+    except Exception as e:
+        print("Gagal menambahkan gambar bagan metode:", e)
+    document.add_page_break()
+
+    # ── BAB II HASIL DESK REVIEW ──────────────────────────────────────────────
+    document.add_heading('BAB II HASIL DESK REVIEW', level=1)
+
+    document.add_heading('A. Gambaran Data', level=2)
+    
+    ss = summary_stats or {}
+    onsite   = ss.get('onsite', sum(1 for c in cases if 'On-Site' in str(c.get('keputusan_sistem', ''))))
+    sampling = ss.get('sampling', sum(1 for c in cases if 'Sampling' in str(c.get('keputusan_sistem', '')) and 'On-Site' not in str(c.get('keputusan_sistem', ''))))
+    monitor  = ss.get('monitoring', len(cases) - onsite - sampling)
+    avg_skor = ss.get('avg_skor_knavp', round(sum(float(c.get('knavp_skor', 0) or 0) for c in cases) / max(len(cases), 1), 1))
+    beda_dc  = ss.get('total_beda_dc', sum(int(c.get('jumlah_beda_dual_coding', 0) or 0) for c in cases))
+    
+    sampel_rj = sum(1 for c in cases if str(c.get('inacbg', '')).endswith('-0'))
+    sampel_ri = len(cases) - sampel_rj
+
+    narasi_gb = (
+        f"Berdasarkan hasil rekapitulasi data klaim {rs_name}, fasilitas kesehatan ini memiliki "
+        f"total populasi sebanyak {total_rs:,} kasus. Dari populasi tersebut, ditarik sampel sebanyak "
+        f"{len(cases)} kasus untuk dilakukan verifikasi melalui Kertas Kerja Review (KKR-DR01). "
+        f"Setelah proses validasi selesai, didapatkan {onsite} kasus yang direkomendasikan untuk "
+        f"pelaksanaan On-Site Audit, dan {sampling} kasus untuk Audit Sampling (Klarifikasi Administratif). "
+        f"Sisa {monitor} kasus lainnya lolos validasi tanpa catatan khusus."
+    )
+    add_p(narasi_gb, align=3, size_pt=12, space_after_pt=12)
+    
+    table_gb = document.add_table(rows=4, cols=3)
+    gb_data = [
+        ['Uraian', 'Total Populasi Klaim RS', 'Sampel Direview'],
+        ['Total Kasus', f"{total_rs:,}", f"{len(cases):,}"],
+        ['Rawat Jalan', f"{rj_rs:,}", f"{sampel_rj:,}"],
+        ['Rawat Inap', f"{ri_rs:,}", f"{sampel_ri:,}"]
+    ]
+    for i, row in enumerate(gb_data):
+        table_gb.rows[i].cells[0].text = row[0]
+        table_gb.rows[i].cells[1].text = row[1]
+        table_gb.rows[i].cells[2].text = row[2]
+        
+    # Bold the header row
+    for cell in table_gb.rows[0].cells:
+        for p in cell.paragraphs:

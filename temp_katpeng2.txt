@@ -1,0 +1,35 @@
+        ["Rumah Sakit", f":  {rs_name}"],
+        ["Alamat", ":  Sesuai Data Center Kemenkes RI"],
+        ["Periode Data", ":  Januari - Desember 2025"],
+        ["Tanggal Pelaksanaan", ":  15 Juni 2026"],
+        ["Nomor Laporan", f":  LHR-DR/2026/{kode_rs}"],
+        ["Disusun oleh", ":  Tim Reviewer Koding Pusat Pembiayaan Kesehatan"]
+    ]
+    for idx_r, (col1, col2) in enumerate(meta_rows):
+        cell1 = table_meta.rows[idx_r].cells[0]
+        cell2 = table_meta.rows[idx_r].cells[1]
+        cell1.width = Inches(2.2)
+        cell2.width = Inches(4.3)
+        p1 = cell1.paragraphs[0]
+        p2 = cell2.paragraphs[0]
+        p1.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        p2.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        p1.paragraph_format.space_after = Pt(6)
+        p2.paragraph_format.space_after = Pt(6)
+        r1 = p1.add_run(col1)
+        r2 = p2.add_run(col2)
+        r1.font.name = 'Times New Roman'
+        r1.font.size = Pt(12)
+        r2.font.name = 'Times New Roman'
+        r2.font.size = Pt(12)
+    document.add_page_break()
+
+    # ── KATA PENGANTAR ────────────────────────────────────────────────────────
+    add_p("KATA PENGANTAR", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size_pt=14, space_after_pt=12)
+
+    add_p(
+        "Laporan ini menyajikan hasil pelaksanaan Desk Review terhadap data klaim pelayanan kesehatan dengan tujuan mengidentifikasi indikasi ketidaksesuaian pengodean diagnosis dan prosedur berdasarkan ketentuan ICD-10, ICD-9-CM, Indonesian Coding Standard (ICS), serta aturan validasi yang tercantum dalam Katalog Nasional Aturan Validasi Pengodean (KNAVP).",
+        align=WD_ALIGN_PARAGRAPH.JUSTIFY, size_pt=12, space_after_pt=8
+    )
+    add_p(
+        "Hasil Desk Review merupakan hasil identifikasi awal berdasarkan data klaim dan belum merupakan penetapan adanya kesalahan pengodean. Seluruh temuan dianalisis oleh reviewer untuk menentukan rekomendasi tindak lanjut sesuai tingkat risiko dan dampaknya terhadap proses grouping INA-CBG maupun iDRG.",
